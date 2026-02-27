@@ -5,6 +5,7 @@
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
+use colored::Colorize;
 
 /// Top-level CLI structure for kaze.
 ///
@@ -27,6 +28,12 @@ pub enum Commands {
     Ask {
         /// The question to ask
         prompt: Vec<String>,
+        /// Model to use (overrides config)
+        #[arg(short, long)]
+        model: Option<String>,
+        /// Provider to use (openai, anthropic, ollama)
+        #[arg(short, long)]
+        provider: Option<String>,
     },
     /// Start an interactive chat session
     Chat {
@@ -66,9 +73,23 @@ pub fn parse() -> Cli {
 /// All handlers are currently stubs that print `TODO` messages.
 pub async fn run(cli: Cli) -> Result<()> {
     match cli.command {
-        Commands::Ask { prompt } => {
+        Commands::Ask { prompt, model, provider } => {
             let prompt = prompt.join(" ");
-            println!("TODO: ask '{}'", prompt);
+            if prompt.is_empty() {
+                anyhow::bail!("No prompt provided. Usage: kaze ask \"your question here\"");
+            }
+            let model_display = model.as_deref().unwrap_or("default");
+            let provider_display = provider.as_deref().unwrap_or("default");
+            println!(
+                "{} [model: {}, provider: {}]",
+                "kaze".bold().cyan(),
+                model_display.yellow(),
+                provider_display.yellow(),
+            );
+            println!();
+            println!("{} {}", ">".green().bold(), prompt);
+            println!();
+            println!("{}", "TODO: send to LLM provider".dimmed());
             Ok(())
         }
         Commands::Chat { session } => {

@@ -33,6 +33,9 @@ thiserror = "2"
 dirs = "6"
 dotenvy = "0.15"
 
+# Terminal colors
+colored = "3"
+
 [profile.release]
 opt-level = "z"
 lto = true
