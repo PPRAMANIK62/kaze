@@ -6,6 +6,7 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use colored::Colorize;
+use crate::config;
 
 /// Top-level CLI structure for kaze.
 ///
@@ -97,9 +98,18 @@ pub async fn run(cli: Cli) -> Result<()> {
             Ok(())
         }
         Commands::Config { action } => {
+            let config = config::Config::load()?;
             match action {
-                ConfigAction::Show => println!("TODO: show config"),
-                ConfigAction::Set { key, value } => println!("TODO: set {} = {}", key, value),
+                ConfigAction::Show => {
+                    let path = config::Config::config_path()?;
+                    println!("{} {}", "Config path:".bold(), path.display());
+                    println!();
+                    let toml_str = toml::to_string_pretty(&config)?;
+                    println!("{}", toml_str);
+                }
+                ConfigAction::Set { key, value } => {
+                    println!("TODO: set {} = {}", key, value);
+                }
             }
             Ok(())
         }
