@@ -5,6 +5,7 @@
 
 mod cli;
 mod config;
+mod provider;
 
 use anyhow::Result;
 

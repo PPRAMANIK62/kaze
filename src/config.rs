@@ -15,7 +15,7 @@ use std::path::PathBuf;
 /// when no config file exists.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Config {
-    /// Default model identifier (e.g. `"gpt-4o"`).
+    /// Default model identifier (e.g. `"claude-sonnet-4-5"`).
     #[serde(default = "default_model")]
     pub model: String,
     /// Per-provider settings.
@@ -26,11 +26,11 @@ pub struct Config {
     pub system_prompt: Option<String>,
 }
 
-/// Returns the default model identifier (`"gpt-4o"`).
+/// Returns the default model identifier (`"claude-sonnet-4-5"`).
 ///
 /// Used by serde's `#[serde(default)]` attribute during deserialization.
 fn default_model() -> String {
-    "gpt-4o".to_string()
+    "claude-sonnet-4-5".to_string()
 }
 
 /// Provider-specific configuration map.
@@ -99,11 +99,11 @@ impl Config {
 
 [provider]
 
-[provider.openai]
-api_key = "{{env:OPENAI_API_KEY}}"
-
 [provider.anthropic]
 api_key = "{{env:ANTHROPIC_API_KEY}}"
+
+[provider.openai]
+api_key = "{{env:OPENAI_API_KEY}}"
 "#,
                 default_model()
             );

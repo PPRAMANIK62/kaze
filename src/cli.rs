@@ -7,6 +7,7 @@ use anyhow::Result;
 use clap::{Parser, Subcommand};
 use colored::Colorize;
 use crate::config;
+use crate::provider;
 
 /// Top-level CLI structure for kaze.
 ///
@@ -74,23 +75,34 @@ pub fn parse() -> Cli {
 /// All handlers are currently stubs that print `TODO` messages.
 pub async fn run(cli: Cli) -> Result<()> {
     match cli.command {
-        Commands::Ask { prompt, model, provider } => {
+        Commands::Ask { prompt, model, provider: _provider_name } => {
             let prompt = prompt.join(" ");
             if prompt.is_empty() {
                 anyhow::bail!("No prompt provided. Usage: kaze ask \"your question here\"");
             }
-            let model_display = model.as_deref().unwrap_or("default");
-            let provider_display = provider.as_deref().unwrap_or("default");
+
+            let mut config = config::Config::load()?;
+
+            // Apply CLI overrides
+            if let Some(m) = model {
+                config.model = m;
+            }
+
             println!(
-                "{} [model: {}, provider: {}]",
+                "{} [model: {}]",
                 "kaze".bold().cyan(),
-                model_display.yellow(),
-                provider_display.yellow(),
+                config.model.yellow(),
             );
             println!();
             println!("{} {}", ">".green().bold(), prompt);
             println!();
-            println!("{}", "TODO: send to LLM provider".dimmed());
+
+            let provider = provider::Provider::from_config(&config)?;
+            let response = provider
+                .complete(&prompt, config.system_prompt.as_deref())
+                .await?;
+
+            println!("{}", response);
             Ok(())
         }
         Commands::Chat { session } => {
