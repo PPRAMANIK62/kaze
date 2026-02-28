@@ -145,4 +145,89 @@ impl Provider {
         renderer.render_done();
         Ok(full_response)
     }
+
+    /// Streams a response with full conversation history for multi-turn chat.
+    ///
+    /// Converts kaze's [`Message`](crate::message::Message) types to rig-core
+    /// messages, extracts any system prompt as the agent preamble, and uses
+    /// [`StreamingChat::stream_chat`] to stream with context.
+    ///
+    /// # Arguments
+    ///
+    /// * `history` — Full conversation history. System messages become the
+    ///   preamble; the last user message becomes the prompt; everything else
+    ///   is chat history.
+    /// * `renderer` — A [`Renderer`] implementation for streaming output.
+    pub async fn stream_with_history(
+        &self,
+        history: &[crate::message::Message],
+        renderer: &mut dyn Renderer,
+    ) -> Result<String> {
+        use futures::StreamExt;
+        use rig::streaming::{StreamingChat, StreamedAssistantContent};
+        use rig::agent::MultiTurnStreamItem;
+        use rig::message::{Message as RigMessage, Text};
+
+        // Extract system prompt from history (first System message becomes preamble)
+        let system_prompt = history.iter()
+            .find(|m| m.role == crate::message::Role::System)
+            .map(|m| m.text());
+
+        let agent = if let Some(sys) = system_prompt {
+            self.client
+                .agent(&self.model)
+                .preamble(sys)
+                .max_tokens(4096)
+                .build()
+        } else {
+            self.client
+                .agent(&self.model)
+                .max_tokens(4096)
+                .build()
+        };
+
+        // Last message is the user's prompt
+        let prompt_text = history.last()
+            .map(|m| m.text().to_string())
+            .unwrap_or_default();
+
+        // Convert history to rig messages (skip system msgs and the last user msg)
+        let chat_history: Vec<RigMessage> = history.iter()
+            .take(history.len().saturating_sub(1))
+            .filter(|m| m.role != crate::message::Role::System)
+            .map(|m| match m.role {
+                crate::message::Role::User => RigMessage::user(m.text()),
+                crate::message::Role::Assistant => RigMessage::assistant(m.text()),
+                _ => RigMessage::user(m.text()),
+            })
+            .collect();
+
+        let mut stream = agent.stream_chat(prompt_text, chat_history).await;
+
+        let mut full_response = String::new();
+
+        while let Some(chunk) = stream.next().await {
+            match chunk {
+                Ok(MultiTurnStreamItem::StreamAssistantItem(
+                    StreamedAssistantContent::Text(Text { text }),
+                )) => {
+                    renderer.render_token(&text);
+                    full_response.push_str(&text);
+                }
+                Ok(MultiTurnStreamItem::FinalResponse(_)) => {
+                    // Stream complete
+                }
+                Err(err) => {
+                    renderer.render_error(&err.to_string());
+                    anyhow::bail!("Streaming error: {}", err);
+                }
+                _ => {
+                    // Tool calls, reasoning, etc. -- handled in later phases
+                }
+            }
+        }
+
+        renderer.render_done();
+        Ok(full_response)
+    }
 }

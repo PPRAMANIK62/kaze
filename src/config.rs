@@ -248,6 +248,21 @@ api_key = "{{env:OPENAI_API_KEY}}"
         Ok(dir)
     }
 
+    /// Returns the platform-specific cache directory for kaze.
+    ///
+    /// Returns `~/.cache/kaze/` on Linux (`XDG_CACHE_HOME/kaze`).
+    /// Used for storing readline history and other ephemeral data.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the platform's cache directory cannot be determined.
+    pub fn cache_dir() -> Result<PathBuf> {
+        let dir = dirs::cache_dir()
+            .ok_or_else(|| anyhow::anyhow!("Could not determine cache directory"))?
+            .join("kaze");
+        Ok(dir)
+    }
+
     /// Returns the full path to the kaze configuration file.
     ///
     /// Returns `~/.config/kaze/config.toml` on Linux.

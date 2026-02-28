@@ -3,8 +3,10 @@
 //! This binary loads environment variables, parses CLI arguments via [`cli`],
 //! and dispatches to the appropriate subcommand handler.
 
+mod chat;
 mod cli;
 mod config;
+mod message;
 mod output;
 mod provider;
 

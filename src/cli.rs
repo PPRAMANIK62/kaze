@@ -6,9 +6,7 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use colored::Colorize;
-use crate::config;
-use crate::provider;
-use crate::output;
+use crate::{chat, config, provider, output};
 
 /// Top-level CLI structure for kaze.
 ///
@@ -107,8 +105,8 @@ pub async fn run(cli: Cli) -> Result<()> {
             Ok(())
         }
         Commands::Chat { session } => {
-            println!("TODO: chat (session: {:?})", session);
-            Ok(())
+            let config = config::Config::load()?;
+            chat::run_chat(config, session).await
         }
         Commands::Config { action } => {
             let config = config::Config::load()?;
