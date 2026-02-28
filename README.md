@@ -12,7 +12,7 @@ kaze is built on [rig-core](https://github.com/0xPlaygrounds/rig) for LLM abstra
 
 ## Current Features
 
-- `kaze ask "question"` ... one-shot streaming responses (Anthropic, OpenAI, OpenRouter)
+- `kaze ask "question"` ... one-shot streaming responses (Anthropic, OpenAI, OpenRouter, Ollama)
 - `kaze chat` ... interactive multi-turn REPL with readline support (arrow keys, history recall, Ctrl+R search)
 - `kaze chat --session {id}` ... resume a previous conversation by session ID
 - `kaze session list` ... browse saved sessions with formatted table
@@ -30,8 +30,8 @@ kaze is built on [rig-core](https://github.com/0xPlaygrounds/rig) for LLM abstra
 - Markdown-lite formatting for assistant responses (bold, inline code, fenced code blocks)
 - Default system prompt (configurable via `system_prompt` in config)
 - Session persistence: conversations saved as JSONL files, survive restarts
-- Multi-provider support: Anthropic (default), OpenAI, OpenRouter
-- `--provider` flag on `ask` and `chat` commands (anthropic, openai, openrouter)
+- Multi-provider support: Anthropic (default), OpenAI, OpenRouter, Ollama (local)
+- `--provider` flag on `ask` and `chat` commands (anthropic, openai, openrouter, ollama)
 - `--model` flag to override the default model per-provider
 
 ## Quick Start
@@ -49,12 +49,16 @@ export OPENAI_API_KEY="your-key-here"
 # Or use OpenRouter (supports many models, including free ones)
 export OPENROUTER_API_KEY="your-key-here"
 
+# Or use Ollama for local models (no API key needed)
+# Just have Ollama running: ollama serve
+
 # One-shot question
 kaze ask "explain ownership in rust"
 
 # Use a different provider
 kaze ask --provider openai "explain ownership in rust"
 kaze ask --provider openrouter "explain ownership in rust"
+kaze ask --provider ollama "explain ownership in rust"
 
 # Override the model
 kaze ask --provider openrouter --model "anthropic/claude-3.5-sonnet" "hello"
@@ -94,6 +98,9 @@ api_key = "{env:OPENAI_API_KEY}"
 
 [provider.openrouter]
 api_key = "{env:OPENROUTER_API_KEY}"
+
+[provider.ollama]
+base_url = "http://localhost:11434"
 ```
 
 ## Roadmap
@@ -105,7 +112,7 @@ kaze is being built incrementally in 34 steps across 8 phases.
 | 0 | Project scaffold | Done |
 | 1 | Core (ask, streaming, config) | Done |
 | 2 | Multi-turn chat + sessions | Done |
-| 3 | Multi-provider (OpenAI, OpenRouter) | In Progress |
+| 3 | Multi-provider (OpenAI, OpenRouter, Ollama) | In Progress |
 | 4 | Context management (token counting, compaction) | Planned |
 | 5 | Tools (read, write, edit, grep, bash) | Planned |
 | 6 | Agent loop | Planned |

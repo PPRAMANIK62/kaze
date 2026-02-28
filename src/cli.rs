@@ -32,7 +32,7 @@ pub enum Commands {
         /// Model to use (overrides config)
         #[arg(short, long)]
         model: Option<String>,
-        /// Provider to use (anthropic, openai, openrouter)
+        /// Provider to use (anthropic, openai, openrouter, ollama)
         #[arg(short, long)]
         provider: Option<String>,
     },
@@ -41,7 +41,7 @@ pub enum Commands {
         /// Resume a specific session
         #[arg(short, long)]
         session: Option<String>,
-        /// Provider to use (anthropic, openai, openrouter)
+        /// Provider to use (anthropic, openai, openrouter, ollama)
         #[arg(long)]
         provider: Option<String>,
         /// Model to use (overrides config)
@@ -117,6 +117,8 @@ pub async fn run(cli: Cli) -> Result<()> {
                 config.model = crate::constants::DEFAULT_OPENAI_MODEL.to_string();
             } else if matches!(provider_kind, Some(provider::ProviderKind::OpenRouter)) {
                 config.model = crate::constants::DEFAULT_OPENROUTER_MODEL.to_string();
+            } else if matches!(provider_kind, Some(provider::ProviderKind::Ollama)) {
+                config.model = crate::constants::OLLAMA_DEFAULT_MODEL.to_string();
             }
             println!(
                 "{} [model: {}]",
@@ -146,6 +148,8 @@ pub async fn run(cli: Cli) -> Result<()> {
                 config.model = crate::constants::DEFAULT_OPENAI_MODEL.to_string();
             } else if matches!(provider_kind, Some(provider::ProviderKind::OpenRouter)) {
                 config.model = crate::constants::DEFAULT_OPENROUTER_MODEL.to_string();
+            } else if matches!(provider_kind, Some(provider::ProviderKind::Ollama)) {
+                config.model = crate::constants::OLLAMA_DEFAULT_MODEL.to_string();
             }
             chat::run_chat(config, session, provider_kind).await
         }

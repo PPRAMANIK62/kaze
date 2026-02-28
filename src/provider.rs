@@ -2,7 +2,7 @@
 //!
 //! Wraps rig-core's provider clients behind a [`Provider`] struct with enum
 //! dispatch, keeping provider-specific details out of the CLI layer. Supports
-//! Anthropic, OpenAI, and OpenRouter via [`ProviderKind`].
+//! Anthropic, OpenAI, OpenRouter, and Ollama (local) via [`ProviderKind`].
 
 use anyhow::{Context, Result, anyhow};
 use futures::StreamExt;
@@ -25,6 +25,8 @@ pub enum ProviderKind {
     OpenAI,
     /// OpenRouter (multi-provider gateway).
     OpenRouter,
+    /// Ollama (local models via OpenAI-compatible API).
+    Ollama,
 }
 
 impl ProviderKind {
@@ -36,7 +38,8 @@ impl ProviderKind {
             "anthropic" => Ok(Self::Anthropic),
             "openai" => Ok(Self::OpenAI),
             "openrouter" => Ok(Self::OpenRouter),
-            other => Err(anyhow!("Unknown provider: {other}. Supported: anthropic, openai, openrouter")),
+            "ollama" => Ok(Self::Ollama),
+            other => Err(anyhow!("Unknown provider: {other}. Supported: anthropic, openai, openrouter, ollama")),
         }
     }
 }
@@ -46,12 +49,13 @@ enum ClientKind {
     Anthropic(anthropic::Client),
     OpenAI(openai::Client),
     OpenRouter(openrouter::Client),
+    Ollama(openai::Client),
 }
 
 /// A configured LLM provider ready to handle completion requests.
 ///
 /// Wraps a rig-core provider client and the target model name. Supports
-/// both Anthropic, OpenAI, and OpenRouter via internal enum dispatch. Agents are
+/// Anthropic, OpenAI, OpenRouter, and Ollama via internal enum dispatch. Agents are
 /// constructed on each call since they are cheap to create and may use
 /// different system prompts.
 pub struct Provider {
@@ -91,6 +95,7 @@ macro_rules! dispatch {
             ClientKind::Anthropic($client) => { $body }
             ClientKind::OpenAI($client) => { $body }
             ClientKind::OpenRouter($client) => { $body }
+            ClientKind::Ollama($client) => { $body }
         }
     };
 }
@@ -167,6 +172,20 @@ impl Provider {
                 let client = openrouter::Client::new(&api_key).context("Failed to create OpenRouter client")?;
                 Ok(Self {
                     client: ClientKind::OpenRouter(client),
+                    model: config.model.clone(),
+                })
+            }
+            ProviderKind::Ollama => {
+                let base_url = config.provider.ollama.as_ref()
+                    .and_then(|o| o.base_url.as_deref())
+                    .unwrap_or(crate::constants::OLLAMA_DEFAULT_BASE_URL);
+                let client = openai::Client::builder()
+                    .api_key("ollama")
+                    .base_url(&format!("{}/v1", base_url))
+                    .build()
+                    .context("Failed to create Ollama client")?;
+                Ok(Self {
+                    client: ClientKind::Ollama(client),
                     model: config.model.clone(),
                 })
             }

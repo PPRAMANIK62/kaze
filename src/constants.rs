@@ -31,3 +31,9 @@ pub const DEFAULT_OPENAI_MODEL: &str = "gpt-4o";
 
 /// Default LLM model identifier for OpenRouter.
 pub const DEFAULT_OPENROUTER_MODEL: &str = "arcee-ai/trinity-large-preview:free";
+
+/// Default base URL for local Ollama server.
+pub const OLLAMA_DEFAULT_BASE_URL: &str = "http://localhost:11434";
+
+/// Default LLM model identifier for Ollama.
+pub const OLLAMA_DEFAULT_MODEL: &str = "llama3";

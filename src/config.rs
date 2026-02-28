@@ -118,6 +118,9 @@ api_key = "{{env:OPENAI_API_KEY}}"
 
 [provider.openrouter]
 api_key = "{{env:OPENROUTER_API_KEY}}"
+
+[provider.ollama]
+base_url = "http://localhost:11434"
 "#,
                 default_model()
             );
