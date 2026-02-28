@@ -8,6 +8,7 @@ use clap::{Parser, Subcommand};
 use colored::Colorize;
 use crate::config;
 use crate::provider;
+use crate::output;
 
 /// Top-level CLI structure for kaze.
 ///
@@ -98,11 +99,11 @@ pub async fn run(cli: Cli) -> Result<()> {
             println!();
 
             let provider = provider::Provider::from_config(&config)?;
-            let response = provider
-                .complete(&prompt, config.system_prompt.as_deref())
+            let mut renderer = output::StdoutRenderer::new();
+            let _response = provider
+                .stream(&prompt, config.system_prompt.as_deref(), &mut renderer)
                 .await?;
 
-            println!("{}", response);
             Ok(())
         }
         Commands::Chat { session } => {

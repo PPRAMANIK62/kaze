@@ -9,6 +9,7 @@ use rig::client::CompletionClient;
 use rig::providers::anthropic;
 
 use crate::config::Config;
+use crate::output::Renderer;
 
 /// A configured LLM provider ready to handle completion requests.
 ///
@@ -74,5 +75,74 @@ impl Provider {
         };
 
         Ok(response)
+    }
+
+    /// Streams a prompt response, rendering tokens as they arrive via the given [`Renderer`].
+    ///
+    /// Builds a fresh agent, opens a streaming connection to the LLM, and
+    /// forwards each text delta to `renderer`. Returns the full accumulated
+    /// response text for later use (e.g. message history, session persistence).
+    ///
+    /// # Arguments
+    ///
+    /// * `prompt` — The user's message to send to the model.
+    /// * `system_prompt` — An optional system-level instruction prepended to the conversation.
+    /// * `renderer` — A [`Renderer`] implementation that displays tokens as they arrive.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if a streaming chunk fails (network error, invalid key, etc.).
+    pub async fn stream(
+        &self,
+        prompt: &str,
+        system_prompt: Option<&str>,
+        renderer: &mut dyn Renderer,
+    ) -> Result<String> {
+        use futures::StreamExt;
+        use rig::streaming::{StreamingPrompt, StreamedAssistantContent};
+        use rig::agent::MultiTurnStreamItem;
+        use rig::message::Text;
+
+        let agent = if let Some(sys) = system_prompt {
+            self.client
+                .agent(&self.model)
+                .preamble(sys)
+                .max_tokens(4096)
+                .build()
+        } else {
+            self.client
+                .agent(&self.model)
+                .max_tokens(4096)
+                .build()
+        };
+
+        // stream_prompt().await returns the stream directly (not a Result)
+        let mut stream = agent.stream_prompt(prompt).await;
+
+        let mut full_response = String::new();
+
+        while let Some(chunk) = stream.next().await {
+            match chunk {
+                Ok(MultiTurnStreamItem::StreamAssistantItem(
+                    StreamedAssistantContent::Text(Text { text }),
+                )) => {
+                    renderer.render_token(&text);
+                    full_response.push_str(&text);
+                }
+                Ok(MultiTurnStreamItem::FinalResponse(_)) => {
+                    // Stream complete
+                }
+                Err(err) => {
+                    renderer.render_error(&err.to_string());
+                    anyhow::bail!("Streaming error: {}", err);
+                }
+                _ => {
+                    // Tool calls, reasoning, etc. -- handled in later phases
+                }
+            }
+        }
+
+        renderer.render_done();
+        Ok(full_response)
     }
 }

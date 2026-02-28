@@ -17,6 +17,9 @@ clap = { version = "4", features = ["derive"] }
 # Async runtime (single-threaded for memory efficiency)  
 tokio = { version = "1", features = ["rt", "macros", "time", "signal", "process"] }
 
+# Streaming support
+futures = "0.3"
+
 # LLM provider abstraction
 rig-core = "0.31"
 

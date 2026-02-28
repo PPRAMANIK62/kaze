@@ -832,6 +832,7 @@ dependencies = [
  "colored",
  "dirs",
  "dotenvy",
+ "futures",
  "rig-core",
  "serde",
  "serde_json",
