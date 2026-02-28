@@ -15,6 +15,11 @@ kaze is built on [rig-core](https://github.com/0xPlaygrounds/rig) for LLM abstra
 - `kaze ask "question"` ... one-shot streaming responses from Anthropic Claude
 - `kaze chat` ... interactive multi-turn REPL with readline support (arrow keys, history recall, Ctrl+R search)
 - `kaze chat --session {id}` ... resume a previous conversation by session ID
+- `kaze session list` ... browse saved sessions with formatted table
+- `kaze session resume {id}` ... resume a session by full or partial ID
+- `kaze session delete {id}` ... delete a session
+- `kaze session new` ... start a new session (alias for `kaze chat`)
+- Partial session ID matching (git-style short IDs)
 - `kaze config show` ... view current configuration
 - Streaming token-by-token output
 - TOML configuration with XDG paths (`~/.config/kaze/config.toml`)
@@ -43,6 +48,15 @@ kaze chat
 
 # Resume a previous session
 kaze chat --session <session-id>
+
+# List saved sessions
+kaze session list
+
+# Resume a session by short ID
+kaze session resume abc12345
+
+# Delete a session
+kaze session delete abc12345
 ```
 
 ## Configuration
@@ -65,7 +79,7 @@ kaze is being built incrementally in 34 steps across 8 phases.
 |-------|-------------|--------|
 | 0 | Project scaffold | Done |
 | 1 | Core (ask, streaming, config) | Done |
-| 2 | Multi-turn chat + sessions | In progress |
+| 2 | Multi-turn chat + sessions | Done |
 | 3 | Multi-provider (OpenAI, Ollama) | Planned |
 | 4 | Context management (token counting, compaction) | Planned |
 | 5 | Tools (read, write, edit, grep, bash) | Planned |
