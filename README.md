@@ -6,7 +6,7 @@ Written in Rust. MIT licensed. Early development.
 
 ## Why kaze
 
-Most AI coding tools carry serious memory overhead. Claude Code (Node.js) idles at 300MB and peaks above 8.5GB with known memory leaks. OpenCode (Go) sits at 40-80MB idle, peaking around 400MB. kaze targets under 25MB idle and under 80MB peak. The name means "wind" in Japanese.
+Most AI coding tools carry serious memory overhead. Claude Code (Node.js) idles at 300MB and peaks above 8.5GB with known memory leaks. OpenCode (TypeScript) sits at 40-80MB idle, peaking around 400MB. kaze targets under 25MB idle and under 80MB peak. The name means "wind" in Japanese.
 
 kaze is built on [rig-core](https://github.com/0xPlaygrounds/rig) for LLM abstraction and runs on a single-threaded tokio runtime to keep overhead minimal. The release binary is optimized for size with `opt-level="z"`, LTO, and symbol stripping.
 
