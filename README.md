@@ -32,7 +32,7 @@ kaze is built on [rig-core](https://github.com/0xPlaygrounds/rig) for LLM abstra
 - Session persistence: conversations saved as JSONL files, survive restarts
 - Multi-provider support: Anthropic (default), OpenAI, OpenRouter, Ollama (local)
 - `--provider` flag on `ask` and `chat` commands (anthropic, openai, openrouter, ollama)
-- `--model` flag to override the default model per-provider
+- `--model` flag to override model, supports `provider/model` shorthand (e.g., `openai/gpt-4o`)
 
 ## Quick Start
 
@@ -63,6 +63,10 @@ kaze ask --provider ollama "explain ownership in rust"
 # Override the model
 kaze ask --provider openrouter --model "anthropic/claude-3.5-sonnet" "hello"
 
+# Use provider/model shorthand (combines --provider and --model in one flag)
+kaze ask --model openai/gpt-4o "hello"
+kaze ask --model ollama/llama3 "hello"
+
 # Interactive chat (creates a new session automatically)
 kaze chat
 
@@ -88,6 +92,9 @@ Global config lives at `~/.config/kaze/config.toml`. Drop a `kaze.toml` in your 
 
 ```toml
 model = "claude-sonnet-4-5"
+# Or use provider/model shorthand:
+# model = "openai/gpt-4o"
+# default_provider = "anthropic"
 system_prompt = "You are a senior Rust developer. Be concise and precise."
 
 [provider.anthropic]

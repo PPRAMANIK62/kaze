@@ -104,32 +104,24 @@ pub async fn run(cli: Cli) -> Result<()> {
                 anyhow::bail!("No prompt provided. Usage: kaze ask \"your question here\"");
             }
 
-            let mut config = config::Config::load()?;
+            let config = config::Config::load()?;
 
-            let provider_kind = provider_name
-                .map(|p| provider::ProviderKind::from_str(&p))
-                .transpose()?;
+            let selection = provider::resolve_model(
+                provider_name.as_deref(),
+                model.as_deref(),
+                &config,
+            )?;
 
-            // Apply CLI overrides
-            if let Some(m) = model {
-                config.model = m;
-            } else if matches!(provider_kind, Some(provider::ProviderKind::OpenAI)) {
-                config.model = crate::constants::DEFAULT_OPENAI_MODEL.to_string();
-            } else if matches!(provider_kind, Some(provider::ProviderKind::OpenRouter)) {
-                config.model = crate::constants::DEFAULT_OPENROUTER_MODEL.to_string();
-            } else if matches!(provider_kind, Some(provider::ProviderKind::Ollama)) {
-                config.model = crate::constants::OLLAMA_DEFAULT_MODEL.to_string();
-            }
             println!(
                 "{} [model: {}]",
                 "kaze".bold().cyan(),
-                config.model.yellow(),
+                selection.model.yellow(),
             );
             println!();
             println!("{} {}", ">".green().bold(), prompt);
             println!();
 
-            let provider = provider::Provider::from_config(&config, provider_kind)?;
+            let provider = provider::Provider::from_config(&config, &selection)?;
             let mut renderer = output::StdoutRenderer::new();
             let _response = provider
                 .stream(&prompt, config.system_prompt.as_deref(), &mut renderer)
@@ -139,19 +131,13 @@ pub async fn run(cli: Cli) -> Result<()> {
         }
         Commands::Chat { session, provider: provider_name, model } => {
             let mut config = config::Config::load()?;
-            let provider_kind = provider_name
-                .map(|p| provider::ProviderKind::from_str(&p))
-                .transpose()?;
-            if let Some(m) = model {
-                config.model = m;
-            } else if matches!(provider_kind, Some(provider::ProviderKind::OpenAI)) {
-                config.model = crate::constants::DEFAULT_OPENAI_MODEL.to_string();
-            } else if matches!(provider_kind, Some(provider::ProviderKind::OpenRouter)) {
-                config.model = crate::constants::DEFAULT_OPENROUTER_MODEL.to_string();
-            } else if matches!(provider_kind, Some(provider::ProviderKind::Ollama)) {
-                config.model = crate::constants::OLLAMA_DEFAULT_MODEL.to_string();
-            }
-            chat::run_chat(config, session, provider_kind).await
+            let selection = provider::resolve_model(
+                provider_name.as_deref(),
+                model.as_deref(),
+                &config,
+            )?;
+            config.model = selection.model.clone();
+            chat::run_chat(config, session, &selection).await
         }
         Commands::Config { action } => {
             let config = config::Config::load()?;
@@ -179,13 +165,19 @@ async fn handle_session(action: SessionAction) -> Result<()> {
     match action {
         SessionAction::New => {
             let config = config::Config::load()?;
-            chat::run_chat(config, None, None).await
+            let selection = provider::resolve_model(None, None, &config)?;
+            let mut config = config;
+            config.model = selection.model.clone();
+            chat::run_chat(config, None, &selection).await
         }
         SessionAction::List => session_list(),
         SessionAction::Resume { id } => {
             let config = config::Config::load()?;
+            let selection = provider::resolve_model(None, None, &config)?;
+            let mut config = config;
+            config.model = selection.model.clone();
             let full_id = resolve_session_id(&id)?;
-            chat::run_chat(config, Some(full_id), None).await
+            chat::run_chat(config, Some(full_id), &selection).await
         }
         SessionAction::Delete { id } => {
             let full_id = resolve_session_id(&id)?;

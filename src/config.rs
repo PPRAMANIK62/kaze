@@ -21,6 +21,9 @@ pub struct Config {
     /// Per-provider settings.
     #[serde(default)]
     pub provider: ProviderConfig,
+    /// Default provider name (e.g., "anthropic", "openai").
+    #[serde(default)]
+    pub default_provider: Option<String>,
     /// Optional system prompt prepended to all conversations.
     #[serde(default = "default_system_prompt")]
     pub system_prompt: Option<String>,
@@ -78,6 +81,7 @@ impl Default for Config {
             model: default_model(),
             provider: ProviderConfig::default(),
             system_prompt: default_system_prompt(),
+            default_provider: None,
         }
     }
 }
@@ -170,6 +174,7 @@ base_url = "http://localhost:11434"
             },
             provider: global.provider, // TODO: deep merge providers
             system_prompt: project.system_prompt.or(global.system_prompt),
+            default_provider: project.default_provider.or(global.default_provider),
         }
     }
 
@@ -179,12 +184,14 @@ base_url = "http://localhost:11434"
         if let Some(ref mut sp) = self.system_prompt {
             *sp = Self::resolve_str(sp);
         }
+        if let Some(ref mut dp) = self.default_provider {
+            *dp = Self::resolve_str(dp);
+        }
         Self::resolve_provider_entry(&mut self.provider.openai);
         Self::resolve_provider_entry(&mut self.provider.anthropic);
         Self::resolve_provider_entry(&mut self.provider.ollama);
         Self::resolve_provider_entry(&mut self.provider.openrouter);
     }
-
     /// Resolves `{env:VAR}` patterns in a single provider entry's `api_key` and `base_url`.
     fn resolve_provider_entry(entry: &mut Option<ProviderEntry>) {
         if let Some(ref mut e) = entry {
@@ -236,6 +243,26 @@ base_url = "http://localhost:11434"
             _ => &None,
         };
         entry.as_ref().and_then(|e| e.api_key.clone())
+    }
+
+    /// Get the configured default provider name, if any.
+    pub fn provider_name(&self) -> Option<&str> {
+        self.default_provider.as_deref()
+    }
+
+    /// Get the model name from config, stripping provider prefix if present.
+    /// Returns None if the model is the compile-time default (meaning user hasn't configured it).
+    pub fn model_name(&self) -> Option<String> {
+        let m = &self.model;
+        if m == crate::constants::DEFAULT_MODEL {
+            return None; // treat default as "not configured"
+        }
+        // If model contains slash, extract just the model part
+        if let Some((_prov, model)) = m.split_once('/') {
+            Some(model.to_string())
+        } else {
+            Some(m.to_string())
+        }
     }
 
     /// Returns the platform-specific configuration directory for kaze.

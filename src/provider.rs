@@ -16,6 +16,15 @@ use rig::streaming::{StreamingChat, StreamingPrompt, StreamedAssistantContent};
 use crate::config::Config;
 use crate::output::Renderer;
 
+/// Default provider name when nothing is configured.
+const DEFAULT_PROVIDER: &str = "anthropic";
+
+/// Resolved provider + model pair.
+pub struct ModelSelection {
+    pub provider: ProviderKind,
+    pub model: String,
+}
+
 /// Identifies which LLM provider to use.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ProviderKind {
@@ -42,6 +51,54 @@ impl ProviderKind {
             other => Err(anyhow!("Unknown provider: {other}. Supported: anthropic, openai, openrouter, ollama")),
         }
     }
+}
+
+/// Returns the default model identifier for a given provider.
+pub fn default_model_for(provider: &ProviderKind) -> &'static str {
+    match provider {
+        ProviderKind::Anthropic => crate::constants::DEFAULT_MODEL,
+        ProviderKind::OpenAI => crate::constants::DEFAULT_OPENAI_MODEL,
+        ProviderKind::OpenRouter => crate::constants::DEFAULT_OPENROUTER_MODEL,
+        ProviderKind::Ollama => crate::constants::OLLAMA_DEFAULT_MODEL,
+    }
+}
+
+/// Resolve which provider and model to use.
+/// Priority: CLI flags > config.toml > defaults.
+///
+/// Accepts these formats:
+///   --model anthropic/claude-sonnet-4-5  (provider/model shorthand)
+///   --provider anthropic --model claude-sonnet-4-5
+///   --provider anthropic  (uses provider's default model)
+///   (nothing)  (uses config.toml, then hardcoded default)
+pub fn resolve_model(
+    cli_provider: Option<&str>,
+    cli_model: Option<&str>,
+    config: &Config,
+) -> Result<ModelSelection> {
+    // If --model contains a slash, parse as provider/model
+    if let Some(model_str) = cli_model {
+        if let Some((prov, model)) = model_str.split_once('/') {
+            return Ok(ModelSelection {
+                provider: ProviderKind::from_str(prov)?,
+                model: model.to_string(),
+            });
+        }
+    }
+
+    // Resolve provider
+    let provider_str = cli_provider
+        .or(config.provider_name())
+        .unwrap_or(DEFAULT_PROVIDER);
+    let provider = ProviderKind::from_str(provider_str)?;
+
+    // Resolve model
+    let model = cli_model
+        .map(String::from)
+        .or_else(|| config.model_name())
+        .unwrap_or_else(|| default_model_for(&provider).to_string());
+
+    Ok(ModelSelection { provider, model })
 }
 
 /// Internal enum wrapping provider-specific clients.
@@ -140,9 +197,8 @@ impl Provider {
     ///
     /// Returns an error if no API key is found for the selected provider
     /// or if client construction fails.
-    pub fn from_config(config: &Config, provider_kind: Option<ProviderKind>) -> Result<Self> {
-        let kind = provider_kind.unwrap_or(ProviderKind::Anthropic);
-        match kind {
+    pub fn from_config(config: &Config, selection: &ModelSelection) -> Result<Self> {
+        match selection.provider {
             ProviderKind::Anthropic => {
                 let api_key = config
                     .resolve_api_key("anthropic")
@@ -151,7 +207,7 @@ impl Provider {
                     .context("Failed to create Anthropic client")?;
                 Ok(Self {
                     client: ClientKind::Anthropic(client),
-                    model: config.model.clone(),
+                    model: selection.model.clone(),
                 })
             }
             ProviderKind::OpenAI => {
@@ -162,7 +218,7 @@ impl Provider {
                     .context("Failed to create OpenAI client")?;
                 Ok(Self {
                     client: ClientKind::OpenAI(client),
-                    model: config.model.clone(),
+                    model: selection.model.clone(),
                 })
             }
             ProviderKind::OpenRouter => {
@@ -172,7 +228,7 @@ impl Provider {
                 let client = openrouter::Client::new(&api_key).context("Failed to create OpenRouter client")?;
                 Ok(Self {
                     client: ClientKind::OpenRouter(client),
-                    model: config.model.clone(),
+                    model: selection.model.clone(),
                 })
             }
             ProviderKind::Ollama => {
@@ -186,7 +242,7 @@ impl Provider {
                     .context("Failed to create Ollama client")?;
                 Ok(Self {
                     client: ClientKind::Ollama(client),
-                    model: config.model.clone(),
+                    model: selection.model.clone(),
                 })
             }
         }
