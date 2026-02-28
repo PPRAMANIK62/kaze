@@ -22,7 +22,7 @@ pub struct Config {
     #[serde(default)]
     pub provider: ProviderConfig,
     /// Optional system prompt prepended to all conversations.
-    #[serde(default)]
+    #[serde(default = "default_system_prompt")]
     pub system_prompt: Option<String>,
 }
 
@@ -30,7 +30,15 @@ pub struct Config {
 ///
 /// Used by serde's `#[serde(default)]` attribute during deserialization.
 fn default_model() -> String {
-    "claude-sonnet-4-5".to_string()
+    crate::constants::DEFAULT_MODEL.to_string()
+}
+
+/// Returns the default system prompt for new conversations.
+///
+/// Used by serde's `#[serde(default)]` attribute during deserialization
+/// so configs without an explicit `system_prompt` still get a sensible default.
+fn default_system_prompt() -> Option<String> {
+    Some(crate::constants::DEFAULT_SYSTEM_PROMPT.to_string())
 }
 
 /// Provider-specific configuration map.
@@ -61,12 +69,13 @@ pub struct ProviderEntry {
     pub model: Option<String>,
 }
 
+
 impl Default for Config {
     fn default() -> Self {
         Self {
             model: default_model(),
             provider: ProviderConfig::default(),
-            system_prompt: None,
+            system_prompt: default_system_prompt(),
         }
     }
 }
@@ -128,7 +137,7 @@ api_key = "{{env:OPENAI_API_KEY}}"
     fn load_project() -> Result<Option<Config>> {
         let mut dir = std::env::current_dir()?;
         loop {
-            let candidate = dir.join("kaze.toml");
+            let candidate = dir.join(crate::constants::PROJECT_CONFIG_FILENAME);
             if candidate.exists() {
                 let contents = fs::read_to_string(&candidate)?;
                 let config: Config = toml::from_str(&contents)?;
@@ -229,7 +238,7 @@ api_key = "{{env:OPENAI_API_KEY}}"
     pub fn config_dir() -> Result<PathBuf> {
         let dir = dirs::config_dir()
             .ok_or_else(|| anyhow::anyhow!("Could not determine config directory"))?
-            .join("kaze");
+            .join(crate::constants::APP_NAME);
         Ok(dir)
     }
 
@@ -244,7 +253,7 @@ api_key = "{{env:OPENAI_API_KEY}}"
     pub fn data_dir() -> Result<PathBuf> {
         let dir = dirs::data_dir()
             .ok_or_else(|| anyhow::anyhow!("Could not determine data directory"))?
-            .join("kaze");
+            .join(crate::constants::APP_NAME);
         Ok(dir)
     }
 
@@ -259,7 +268,7 @@ api_key = "{{env:OPENAI_API_KEY}}"
     pub fn cache_dir() -> Result<PathBuf> {
         let dir = dirs::cache_dir()
             .ok_or_else(|| anyhow::anyhow!("Could not determine cache directory"))?
-            .join("kaze");
+            .join(crate::constants::APP_NAME);
         Ok(dir)
     }
 
@@ -271,6 +280,6 @@ api_key = "{{env:OPENAI_API_KEY}}"
     ///
     /// Returns an error if [`Config::config_dir`] fails.
     pub fn config_path() -> Result<PathBuf> {
-        Ok(Self::config_dir()?.join("config.toml"))
+        Ok(Self::config_dir()?.join(crate::constants::CONFIG_FILENAME))
     }
 }

@@ -20,6 +20,9 @@ kaze is built on [rig-core](https://github.com/0xPlaygrounds/rig) for LLM abstra
 - Per-project config override (`kaze.toml` in project root)
 - Environment variable resolution (`{env:VAR}` syntax)
 - Persistent readline history across sessions
+- Slash commands in chat: `/history`, `/clear`, `/help`
+- Markdown-lite formatting for assistant responses (bold, inline code, fenced code blocks)
+- Default system prompt (configurable via `system_prompt` in config)
 
 ## Quick Start
 
@@ -43,6 +46,7 @@ Global config lives at `~/.config/kaze/config.toml`. Drop a `kaze.toml` in your 
 
 ```toml
 model = "claude-sonnet-4-5"
+system_prompt = "You are a senior Rust developer. Be concise and precise."
 
 [provider.anthropic]
 api_key = "{env:ANTHROPIC_API_KEY}"

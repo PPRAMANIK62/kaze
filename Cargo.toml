@@ -39,6 +39,9 @@ dotenvy = "0.15"
 # Terminal colors
 colored = "3"
 
+# Terminal dimensions for accurate line counting
+terminal_size = "0.4"
+
 # Readline support for interactive chat
 rustyline = "15"
 

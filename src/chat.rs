@@ -8,11 +8,13 @@ use anyhow::Result;
 use colored::Colorize;
 use rustyline::error::ReadlineError;
 use rustyline::DefaultEditor;
+use std::io::{self, Write};
 
 use crate::config::Config;
 use crate::message::Message;
 use crate::output::StdoutRenderer;
 use crate::provider::Provider;
+use crate::format;
 
 /// Runs the interactive chat REPL.
 ///
@@ -50,7 +52,7 @@ pub async fn run_chat(config: Config, _session: Option<String>) -> Result<()> {
 
     // Set up readline with persistent history
     let mut rl = DefaultEditor::new()?;
-    let history_path = Config::cache_dir()?.join("chat_history.txt");
+    let history_path = Config::cache_dir()?.join(crate::constants::HISTORY_FILENAME);
     if history_path.exists() {
         let _ = rl.load_history(&history_path);
     }
@@ -65,6 +67,40 @@ pub async fn run_chat(config: Config, _session: Option<String>) -> Result<()> {
                     continue;
                 }
 
+
+                // Slash commands
+                if line.starts_with('/') {
+                    match line.as_str() {
+                        "/history" => {
+                            for msg in &history {
+                                if msg.role == crate::message::Role::System {
+                                    continue;
+                                }
+                                println!("{}", format::format_message(msg));
+                                println!();
+                            }
+                            continue;
+                        }
+                        "/clear" => {
+                            history.retain(|m| m.role == crate::message::Role::System);
+                            println!("{}", "History cleared.".dimmed());
+                            continue;
+                        }
+                        "/help" => {
+                            println!("{}", "Commands:".bold());
+                            println!("  {} - show conversation history", "/history".cyan());
+                            println!("  {} - clear conversation", "/clear".cyan());
+                            println!("  {} - show this help", "/help".cyan());
+                            println!("  {} - exit", "Ctrl+D".cyan());
+                            continue;
+                        }
+                        _ => {
+                            println!("{} Unknown command: {}", "?".yellow(), line);
+                            continue;
+                        }
+                    }
+                }
+
                 let _ = rl.add_history_entry(&line);
 
                 // Add user message to history
@@ -76,6 +112,20 @@ pub async fn run_chat(config: Config, _session: Option<String>) -> Result<()> {
                 // Stream response
                 match provider.stream_with_history(&history, &mut renderer).await {
                     Ok(response) => {
+                        // Erase raw streamed output and reprint with formatting
+                        let total_lines = renderer.visual_line_count();
+                        // Move cursor up to start of streamed content, then clear to end of screen
+                        print!("\x1b[{}A\x1b[J", total_lines);
+                        io::stdout().flush().ok();
+
+                        // Reprint with markdown-lite formatting (no role label in chat)
+                        println!("{}", format::render_markdown_lite(&response));
+                        println!();
+                        println!(
+                            "{}",
+                            format!("[{} tokens]", renderer.token_count()).dimmed()
+                        );
+
                         history.push(Message::assistant(response));
                     }
                     Err(e) => {

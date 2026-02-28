@@ -6,6 +6,8 @@
 mod chat;
 mod cli;
 mod config;
+mod constants;
+mod format;
 mod message;
 mod output;
 mod provider;

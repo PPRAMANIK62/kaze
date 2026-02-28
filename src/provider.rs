@@ -63,13 +63,13 @@ impl Provider {
             let agent = self.client
                 .agent(&self.model)
                 .preamble(sys)
-                .max_tokens(4096)
+                .max_tokens(crate::constants::MAX_TOKENS)
                 .build();
             agent.prompt(prompt).await.context("LLM API call failed")?
         } else {
             let agent = self.client
                 .agent(&self.model)
-                .max_tokens(4096)
+                .max_tokens(crate::constants::MAX_TOKENS)
                 .build();
             agent.prompt(prompt).await.context("LLM API call failed")?
         };
@@ -107,12 +107,12 @@ impl Provider {
             self.client
                 .agent(&self.model)
                 .preamble(sys)
-                .max_tokens(4096)
+                .max_tokens(crate::constants::MAX_TOKENS)
                 .build()
         } else {
             self.client
                 .agent(&self.model)
-                .max_tokens(4096)
+                .max_tokens(crate::constants::MAX_TOKENS)
                 .build()
         };
 
@@ -177,12 +177,12 @@ impl Provider {
             self.client
                 .agent(&self.model)
                 .preamble(sys)
-                .max_tokens(4096)
+                .max_tokens(crate::constants::MAX_TOKENS)
                 .build()
         } else {
             self.client
                 .agent(&self.model)
-                .max_tokens(4096)
+                .max_tokens(crate::constants::MAX_TOKENS)
                 .build()
         };
 
