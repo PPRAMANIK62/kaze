@@ -14,6 +14,7 @@ kaze is built on [rig-core](https://github.com/0xPlaygrounds/rig) for LLM abstra
 
 - `kaze ask "question"` ... one-shot streaming responses from Anthropic Claude
 - `kaze chat` ... interactive multi-turn REPL with readline support (arrow keys, history recall, Ctrl+R search)
+- `kaze chat --session {id}` ... resume a previous conversation by session ID
 - `kaze config show` ... view current configuration
 - Streaming token-by-token output
 - TOML configuration with XDG paths (`~/.config/kaze/config.toml`)
@@ -23,6 +24,7 @@ kaze is built on [rig-core](https://github.com/0xPlaygrounds/rig) for LLM abstra
 - Slash commands in chat: `/history`, `/clear`, `/help`
 - Markdown-lite formatting for assistant responses (bold, inline code, fenced code blocks)
 - Default system prompt (configurable via `system_prompt` in config)
+- Session persistence: conversations saved as JSONL files, survive restarts
 
 ## Quick Start
 
@@ -36,8 +38,11 @@ export ANTHROPIC_API_KEY="your-key-here"
 # One-shot question
 kaze ask "explain ownership in rust"
 
-# Interactive chat
+# Interactive chat (creates a new session automatically)
 kaze chat
+
+# Resume a previous session
+kaze chat --session <session-id>
 ```
 
 ## Configuration

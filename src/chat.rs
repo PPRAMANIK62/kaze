@@ -15,11 +15,12 @@ use crate::message::Message;
 use crate::output::StdoutRenderer;
 use crate::provider::Provider;
 use crate::format;
+use crate::session::Session;
 
 /// Runs the interactive chat REPL.
 ///
 /// Loads config, builds the provider, and enters a readline loop where each
-/// user input is appended to a growing `Vec<Message>` history. The entire
+/// user input is appended to a [`Session`] which persists messages as JSONL. The entire
 /// history is sent with each request via [`Provider::stream_with_history`]
 /// so the LLM sees all prior context.
 ///
@@ -32,23 +33,46 @@ use crate::format;
 /// # Arguments
 ///
 /// * `config` — The loaded kaze configuration.
-/// * `_session` — Reserved for future session resume support.
-pub async fn run_chat(config: Config, _session: Option<String>) -> Result<()> {
+/// * `session_id` — Optional session ID to resume an existing session.
+pub async fn run_chat(config: Config, session_id: Option<String>) -> Result<()> {
     let provider = Provider::from_config(&config)?;
 
-    let mut history: Vec<Message> = Vec::new();
-
-    // Add system prompt to history if configured
-    if let Some(ref sp) = config.system_prompt {
-        history.push(Message::system(sp.clone()));
-    }
-
-    println!(
-        "{} [model: {}] (Ctrl+D to exit)",
-        "kaze chat".bold().cyan(),
-        config.model.yellow(),
-    );
-    println!();
+    // Create or resume session
+    let mut session = if let Some(ref id) = session_id {
+        let s = Session::load(id)?;
+        let short = &s.id[..8];
+        println!(
+            "{} [session: {}] [model: {}]",
+            "resuming".bold().cyan(),
+            short.yellow(),
+            s.model.yellow(),
+        );
+        println!();
+        // Display previous messages
+        for msg in &s.messages {
+            if msg.role == crate::message::Role::System {
+                continue;
+            }
+            println!("{}", format::format_message(msg));
+            println!();
+        }
+        s
+    } else {
+        let mut s = Session::new(&config.model)?;
+        let short = &s.id[..8];
+        println!(
+            "{} [session: {}] [model: {}] (Ctrl+D to exit)",
+            "kaze chat".bold().cyan(),
+            short.yellow(),
+            config.model.yellow(),
+        );
+        println!();
+        // Add system prompt if configured
+        if let Some(ref sp) = config.system_prompt {
+            s.append(Message::system(sp.clone()))?;
+        }
+        s
+    };
 
     // Set up readline with persistent history
     let mut rl = DefaultEditor::new()?;
@@ -72,7 +96,7 @@ pub async fn run_chat(config: Config, _session: Option<String>) -> Result<()> {
                 if line.starts_with('/') {
                     match line.as_str() {
                         "/history" => {
-                            for msg in &history {
+                            for msg in &session.messages {
                                 if msg.role == crate::message::Role::System {
                                     continue;
                                 }
@@ -82,7 +106,7 @@ pub async fn run_chat(config: Config, _session: Option<String>) -> Result<()> {
                             continue;
                         }
                         "/clear" => {
-                            history.retain(|m| m.role == crate::message::Role::System);
+                            session.messages.retain(|m| m.role == crate::message::Role::System);
                             println!("{}", "History cleared.".dimmed());
                             continue;
                         }
@@ -103,14 +127,14 @@ pub async fn run_chat(config: Config, _session: Option<String>) -> Result<()> {
 
                 let _ = rl.add_history_entry(&line);
 
-                // Add user message to history
-                history.push(Message::user(&line));
+                // Add user message to session (before provider call for crash safety)
+                session.append(Message::user(&line))?;
                 println!();
 
                 let mut renderer = StdoutRenderer::new();
 
                 // Stream response
-                match provider.stream_with_history(&history, &mut renderer).await {
+                match provider.stream_with_history(&session.messages, &mut renderer).await {
                     Ok(response) => {
                         // Erase raw streamed output and reprint with formatting
                         let total_lines = renderer.visual_line_count();
@@ -126,11 +150,11 @@ pub async fn run_chat(config: Config, _session: Option<String>) -> Result<()> {
                             format!("[{} tokens]", renderer.token_count()).dimmed()
                         );
 
-                        history.push(Message::assistant(response));
+                        session.append(Message::assistant(response.clone()))?;
                     }
                     Err(e) => {
                         // Pop the failed user message so user can retry
-                        history.pop();
+                        session.messages.pop();
                         eprintln!("{} {}", "error:".red().bold(), e);
                     }
                 }

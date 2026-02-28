@@ -11,6 +11,7 @@ mod format;
 mod message;
 mod output;
 mod provider;
+mod session;
 
 use anyhow::Result;
 
