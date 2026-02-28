@@ -53,6 +53,8 @@ pub struct ProviderConfig {
     pub anthropic: Option<ProviderEntry>,
     /// Configuration for the local Ollama provider.
     pub ollama: Option<ProviderEntry>,
+    /// Configuration for the OpenRouter API provider.
+    pub openrouter: Option<ProviderEntry>,
 }
 
 /// Connection details for a single LLM provider.
@@ -113,6 +115,9 @@ api_key = "{{env:ANTHROPIC_API_KEY}}"
 
 [provider.openai]
 api_key = "{{env:OPENAI_API_KEY}}"
+
+[provider.openrouter]
+api_key = "{{env:OPENROUTER_API_KEY}}"
 "#,
                 default_model()
             );
@@ -174,6 +179,7 @@ api_key = "{{env:OPENAI_API_KEY}}"
         Self::resolve_provider_entry(&mut self.provider.openai);
         Self::resolve_provider_entry(&mut self.provider.anthropic);
         Self::resolve_provider_entry(&mut self.provider.ollama);
+        Self::resolve_provider_entry(&mut self.provider.openrouter);
     }
 
     /// Resolves `{env:VAR}` patterns in a single provider entry's `api_key` and `base_url`.
@@ -223,6 +229,7 @@ api_key = "{{env:OPENAI_API_KEY}}"
             "openai" => &self.provider.openai,
             "anthropic" => &self.provider.anthropic,
             "ollama" => &self.provider.ollama,
+            "openrouter" => &self.provider.openrouter,
             _ => &None,
         };
         entry.as_ref().and_then(|e| e.api_key.clone())

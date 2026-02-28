@@ -32,7 +32,7 @@ pub enum Commands {
         /// Model to use (overrides config)
         #[arg(short, long)]
         model: Option<String>,
-        /// Provider to use (openai, anthropic, ollama)
+        /// Provider to use (anthropic, openai, openrouter)
         #[arg(short, long)]
         provider: Option<String>,
     },
@@ -41,6 +41,12 @@ pub enum Commands {
         /// Resume a specific session
         #[arg(short, long)]
         session: Option<String>,
+        /// Provider to use (anthropic, openai, openrouter)
+        #[arg(long)]
+        provider: Option<String>,
+        /// Model to use (overrides config)
+        #[arg(short, long)]
+        model: Option<String>,
     },
     /// Manage configuration
     Config {
@@ -92,7 +98,7 @@ pub fn parse() -> Cli {
 /// All handlers are currently stubs that print `TODO` messages.
 pub async fn run(cli: Cli) -> Result<()> {
     match cli.command {
-        Commands::Ask { prompt, model, provider: _provider_name } => {
+        Commands::Ask { prompt, model, provider: provider_name } => {
             let prompt = prompt.join(" ");
             if prompt.is_empty() {
                 anyhow::bail!("No prompt provided. Usage: kaze ask \"your question here\"");
@@ -100,11 +106,18 @@ pub async fn run(cli: Cli) -> Result<()> {
 
             let mut config = config::Config::load()?;
 
+            let provider_kind = provider_name
+                .map(|p| provider::ProviderKind::from_str(&p))
+                .transpose()?;
+
             // Apply CLI overrides
             if let Some(m) = model {
                 config.model = m;
+            } else if matches!(provider_kind, Some(provider::ProviderKind::OpenAI)) {
+                config.model = crate::constants::DEFAULT_OPENAI_MODEL.to_string();
+            } else if matches!(provider_kind, Some(provider::ProviderKind::OpenRouter)) {
+                config.model = crate::constants::DEFAULT_OPENROUTER_MODEL.to_string();
             }
-
             println!(
                 "{} [model: {}]",
                 "kaze".bold().cyan(),
@@ -114,7 +127,7 @@ pub async fn run(cli: Cli) -> Result<()> {
             println!("{} {}", ">".green().bold(), prompt);
             println!();
 
-            let provider = provider::Provider::from_config(&config)?;
+            let provider = provider::Provider::from_config(&config, provider_kind)?;
             let mut renderer = output::StdoutRenderer::new();
             let _response = provider
                 .stream(&prompt, config.system_prompt.as_deref(), &mut renderer)
@@ -122,9 +135,19 @@ pub async fn run(cli: Cli) -> Result<()> {
 
             Ok(())
         }
-        Commands::Chat { session } => {
-            let config = config::Config::load()?;
-            chat::run_chat(config, session).await
+        Commands::Chat { session, provider: provider_name, model } => {
+            let mut config = config::Config::load()?;
+            let provider_kind = provider_name
+                .map(|p| provider::ProviderKind::from_str(&p))
+                .transpose()?;
+            if let Some(m) = model {
+                config.model = m;
+            } else if matches!(provider_kind, Some(provider::ProviderKind::OpenAI)) {
+                config.model = crate::constants::DEFAULT_OPENAI_MODEL.to_string();
+            } else if matches!(provider_kind, Some(provider::ProviderKind::OpenRouter)) {
+                config.model = crate::constants::DEFAULT_OPENROUTER_MODEL.to_string();
+            }
+            chat::run_chat(config, session, provider_kind).await
         }
         Commands::Config { action } => {
             let config = config::Config::load()?;
@@ -152,13 +175,13 @@ async fn handle_session(action: SessionAction) -> Result<()> {
     match action {
         SessionAction::New => {
             let config = config::Config::load()?;
-            chat::run_chat(config, None).await
+            chat::run_chat(config, None, None).await
         }
         SessionAction::List => session_list(),
         SessionAction::Resume { id } => {
             let config = config::Config::load()?;
             let full_id = resolve_session_id(&id)?;
-            chat::run_chat(config, Some(full_id)).await
+            chat::run_chat(config, Some(full_id), None).await
         }
         SessionAction::Delete { id } => {
             let full_id = resolve_session_id(&id)?;

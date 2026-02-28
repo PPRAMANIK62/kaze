@@ -25,3 +25,9 @@ pub const PROJECT_CONFIG_FILENAME: &str = "kaze.toml";
 
 /// Readline history filename.
 pub const HISTORY_FILENAME: &str = "chat_history.txt";
+
+/// Default LLM model identifier for OpenAI.
+pub const DEFAULT_OPENAI_MODEL: &str = "gpt-4o";
+
+/// Default LLM model identifier for OpenRouter.
+pub const DEFAULT_OPENROUTER_MODEL: &str = "arcee-ai/trinity-large-preview:free";

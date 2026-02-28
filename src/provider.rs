@@ -1,46 +1,176 @@
 //! LLM provider abstraction for kaze.
 //!
-//! Wraps rig-core's Anthropic client behind a [`Provider`] struct, keeping
-//! provider-specific details out of the CLI layer.
+//! Wraps rig-core's provider clients behind a [`Provider`] struct with enum
+//! dispatch, keeping provider-specific details out of the CLI layer. Supports
+//! Anthropic, OpenAI, and OpenRouter via [`ProviderKind`].
 
-use anyhow::{Context, Result};
-use rig::completion::Prompt;
+use anyhow::{Context, Result, anyhow};
+use futures::StreamExt;
+use rig::agent::MultiTurnStreamItem;
 use rig::client::CompletionClient;
-use rig::providers::anthropic;
+use rig::completion::Prompt;
+use rig::message::{Message as RigMessage, Text};
+use rig::providers::{anthropic, openai, openrouter};
+use rig::streaming::{StreamingChat, StreamingPrompt, StreamedAssistantContent};
 
 use crate::config::Config;
 use crate::output::Renderer;
 
+/// Identifies which LLM provider to use.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProviderKind {
+    /// Anthropic (Claude models).
+    Anthropic,
+    /// OpenAI (GPT models, via the Responses API).
+    OpenAI,
+    /// OpenRouter (multi-provider gateway).
+    OpenRouter,
+}
+
+impl ProviderKind {
+    /// Parses a provider name string into a [`ProviderKind`].
+    ///
+    /// Matching is case-insensitive. Returns an error for unknown providers.
+    pub fn from_str(s: &str) -> Result<Self> {
+        match s.to_lowercase().as_str() {
+            "anthropic" => Ok(Self::Anthropic),
+            "openai" => Ok(Self::OpenAI),
+            "openrouter" => Ok(Self::OpenRouter),
+            other => Err(anyhow!("Unknown provider: {other}. Supported: anthropic, openai, openrouter")),
+        }
+    }
+}
+
+/// Internal enum wrapping provider-specific clients.
+enum ClientKind {
+    Anthropic(anthropic::Client),
+    OpenAI(openai::Client),
+    OpenRouter(openrouter::Client),
+}
+
 /// A configured LLM provider ready to handle completion requests.
 ///
-/// Wraps a rig-core [`anthropic::Client`] and the target model name.
-/// Agents are constructed on each [`complete()`](Provider::complete) call
-/// since they are cheap to create and may use different system prompts.
+/// Wraps a rig-core provider client and the target model name. Supports
+/// both Anthropic, OpenAI, and OpenRouter via internal enum dispatch. Agents are
+/// constructed on each call since they are cheap to create and may use
+/// different system prompts.
 pub struct Provider {
-    client: anthropic::Client,
+    client: ClientKind,
     model: String,
+}
+
+/// Helper macro to reduce duplication across provider match arms.
+///
+/// Builds an agent from the given client, model, and optional system prompt,
+/// then executes the provided block with the agent bound to `$agent`.
+macro_rules! with_agent {
+    ($client:expr, $model:expr, $sys:expr, |$agent:ident| $body:expr) => {{
+        let $agent = if let Some(sys) = $sys {
+            $client
+                .agent($model)
+                .preamble(sys)
+                .max_tokens(crate::constants::MAX_TOKENS)
+                .build()
+        } else {
+            $client
+                .agent($model)
+                .max_tokens(crate::constants::MAX_TOKENS)
+                .build()
+        };
+        $body
+    }};
+}
+
+/// Dispatches an operation across provider-specific clients.
+///
+/// Matches on [`ClientKind`] and executes the same block for each variant,
+/// letting the compiler monomorphize per provider.
+macro_rules! dispatch {
+    ($self:expr, |$client:ident| $body:expr) => {
+        match &$self.client {
+            ClientKind::Anthropic($client) => { $body }
+            ClientKind::OpenAI($client) => { $body }
+            ClientKind::OpenRouter($client) => { $body }
+        }
+    };
+}
+
+/// Processes a streaming response, rendering tokens and accumulating the full text.
+///
+/// Handles text chunks, final responses, errors, and unknown items uniformly
+/// across all providers.
+macro_rules! process_stream {
+    ($stream:expr, $renderer:expr, $full_response:expr) => {
+        while let Some(chunk) = $stream.next().await {
+            match chunk {
+                Ok(MultiTurnStreamItem::StreamAssistantItem(
+                    StreamedAssistantContent::Text(Text { text }),
+                )) => {
+                    $renderer.render_token(&text);
+                    $full_response.push_str(&text);
+                }
+                Ok(MultiTurnStreamItem::FinalResponse(_)) => {
+                    // Stream complete
+                }
+                Err(err) => {
+                    $renderer.render_error(&err.to_string());
+                    anyhow::bail!("Streaming error: {}", err);
+                }
+                _ => {
+                    // Tool calls, reasoning, etc. -- handled in later phases
+                }
+            }
+        }
+    };
 }
 
 impl Provider {
     /// Creates a new [`Provider`] from the loaded application config.
     ///
     /// Resolves the API key through kaze's config precedence chain
-    /// (env var → config file → substitution) and builds an Anthropic client.
+    /// (env var → config file → substitution) and builds the appropriate
+    /// provider client. Defaults to Anthropic when no provider is specified.
     ///
     /// # Errors
     ///
-    /// Returns an error if no API key is found for the `"anthropic"` provider.
-    pub fn from_config(config: &Config) -> Result<Self> {
-        let api_key = config
-            .resolve_api_key("anthropic")
-            .context("No API key found for Anthropic. Set ANTHROPIC_API_KEY or configure it in config.toml")?;
-
-        let client = anthropic::Client::new(&api_key).context("Failed to create Anthropic client")?;
-
-        Ok(Self {
-            client,
-            model: config.model.clone(),
-        })
+    /// Returns an error if no API key is found for the selected provider
+    /// or if client construction fails.
+    pub fn from_config(config: &Config, provider_kind: Option<ProviderKind>) -> Result<Self> {
+        let kind = provider_kind.unwrap_or(ProviderKind::Anthropic);
+        match kind {
+            ProviderKind::Anthropic => {
+                let api_key = config
+                    .resolve_api_key("anthropic")
+                    .context("No API key found for Anthropic. Set ANTHROPIC_API_KEY or configure it in config.toml")?;
+                let client = anthropic::Client::new(&api_key)
+                    .context("Failed to create Anthropic client")?;
+                Ok(Self {
+                    client: ClientKind::Anthropic(client),
+                    model: config.model.clone(),
+                })
+            }
+            ProviderKind::OpenAI => {
+                let api_key = config
+                    .resolve_api_key("openai")
+                    .context("No API key found for OpenAI. Set OPENAI_API_KEY or configure it in config.toml")?;
+                let client = openai::Client::new(&api_key)
+                    .context("Failed to create OpenAI client")?;
+                Ok(Self {
+                    client: ClientKind::OpenAI(client),
+                    model: config.model.clone(),
+                })
+            }
+            ProviderKind::OpenRouter => {
+                let api_key = config
+                    .resolve_api_key("openrouter")
+                    .context("No API key found for OpenRouter. Set OPENROUTER_API_KEY or configure it in config.toml")?;
+                let client = openrouter::Client::new(&api_key).context("Failed to create OpenRouter client")?;
+                Ok(Self {
+                    client: ClientKind::OpenRouter(client),
+                    model: config.model.clone(),
+                })
+            }
+        }
     }
 
     /// Sends a prompt to the configured model and returns the full response.
@@ -59,21 +189,11 @@ impl Provider {
     /// Returns an error if the LLM API call fails (network error,
     /// invalid key, rate limit, etc.).
     pub async fn complete(&self, prompt: &str, system_prompt: Option<&str>) -> Result<String> {
-        let response = if let Some(sys) = system_prompt {
-            let agent = self.client
-                .agent(&self.model)
-                .preamble(sys)
-                .max_tokens(crate::constants::MAX_TOKENS)
-                .build();
-            agent.prompt(prompt).await.context("LLM API call failed")?
-        } else {
-            let agent = self.client
-                .agent(&self.model)
-                .max_tokens(crate::constants::MAX_TOKENS)
-                .build();
-            agent.prompt(prompt).await.context("LLM API call failed")?
-        };
-
+        let response = dispatch!(self, |client| {
+            with_agent!(client, &self.model, system_prompt, |agent| {
+                agent.prompt(prompt).await.context("LLM API call failed")?
+            })
+        });
         Ok(response)
     }
 
@@ -98,49 +218,14 @@ impl Provider {
         system_prompt: Option<&str>,
         renderer: &mut dyn Renderer,
     ) -> Result<String> {
-        use futures::StreamExt;
-        use rig::streaming::{StreamingPrompt, StreamedAssistantContent};
-        use rig::agent::MultiTurnStreamItem;
-        use rig::message::Text;
-
-        let agent = if let Some(sys) = system_prompt {
-            self.client
-                .agent(&self.model)
-                .preamble(sys)
-                .max_tokens(crate::constants::MAX_TOKENS)
-                .build()
-        } else {
-            self.client
-                .agent(&self.model)
-                .max_tokens(crate::constants::MAX_TOKENS)
-                .build()
-        };
-
-        // stream_prompt().await returns the stream directly (not a Result)
-        let mut stream = agent.stream_prompt(prompt).await;
-
         let mut full_response = String::new();
 
-        while let Some(chunk) = stream.next().await {
-            match chunk {
-                Ok(MultiTurnStreamItem::StreamAssistantItem(
-                    StreamedAssistantContent::Text(Text { text }),
-                )) => {
-                    renderer.render_token(&text);
-                    full_response.push_str(&text);
-                }
-                Ok(MultiTurnStreamItem::FinalResponse(_)) => {
-                    // Stream complete
-                }
-                Err(err) => {
-                    renderer.render_error(&err.to_string());
-                    anyhow::bail!("Streaming error: {}", err);
-                }
-                _ => {
-                    // Tool calls, reasoning, etc. -- handled in later phases
-                }
-            }
-        }
+        dispatch!(self, |client| {
+            let mut stream = with_agent!(client, &self.model, system_prompt, |agent| {
+                agent.stream_prompt(prompt).await
+            });
+            process_stream!(stream, renderer, full_response);
+        });
 
         renderer.render_done();
         Ok(full_response)
@@ -163,28 +248,10 @@ impl Provider {
         history: &[crate::message::Message],
         renderer: &mut dyn Renderer,
     ) -> Result<String> {
-        use futures::StreamExt;
-        use rig::streaming::{StreamingChat, StreamedAssistantContent};
-        use rig::agent::MultiTurnStreamItem;
-        use rig::message::{Message as RigMessage, Text};
-
         // Extract system prompt from history (first System message becomes preamble)
         let system_prompt = history.iter()
             .find(|m| m.role == crate::message::Role::System)
             .map(|m| m.text());
-
-        let agent = if let Some(sys) = system_prompt {
-            self.client
-                .agent(&self.model)
-                .preamble(sys)
-                .max_tokens(crate::constants::MAX_TOKENS)
-                .build()
-        } else {
-            self.client
-                .agent(&self.model)
-                .max_tokens(crate::constants::MAX_TOKENS)
-                .build()
-        };
 
         // Last message is the user's prompt
         let prompt_text = history.last()
@@ -202,30 +269,14 @@ impl Provider {
             })
             .collect();
 
-        let mut stream = agent.stream_chat(prompt_text, chat_history).await;
-
         let mut full_response = String::new();
 
-        while let Some(chunk) = stream.next().await {
-            match chunk {
-                Ok(MultiTurnStreamItem::StreamAssistantItem(
-                    StreamedAssistantContent::Text(Text { text }),
-                )) => {
-                    renderer.render_token(&text);
-                    full_response.push_str(&text);
-                }
-                Ok(MultiTurnStreamItem::FinalResponse(_)) => {
-                    // Stream complete
-                }
-                Err(err) => {
-                    renderer.render_error(&err.to_string());
-                    anyhow::bail!("Streaming error: {}", err);
-                }
-                _ => {
-                    // Tool calls, reasoning, etc. -- handled in later phases
-                }
-            }
-        }
+        dispatch!(self, |client| {
+            let mut stream = with_agent!(client, &self.model, system_prompt, |agent| {
+                agent.stream_chat(prompt_text.clone(), chat_history.clone()).await
+            });
+            process_stream!(stream, renderer, full_response);
+        });
 
         renderer.render_done();
         Ok(full_response)

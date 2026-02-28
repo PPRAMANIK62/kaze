@@ -13,7 +13,7 @@ use std::io::{self, Write};
 use crate::config::Config;
 use crate::message::Message;
 use crate::output::StdoutRenderer;
-use crate::provider::Provider;
+use crate::provider::{Provider, ProviderKind};
 use crate::format;
 use crate::session::Session;
 
@@ -34,8 +34,9 @@ use crate::session::Session;
 ///
 /// * `config` — The loaded kaze configuration.
 /// * `session_id` — Optional session ID to resume an existing session.
-pub async fn run_chat(config: Config, session_id: Option<String>) -> Result<()> {
-    let provider = Provider::from_config(&config)?;
+/// * `provider_kind` — Optional provider override (defaults to Anthropic).
+pub async fn run_chat(config: Config, session_id: Option<String>, provider_kind: Option<ProviderKind>) -> Result<()> {
+    let provider = Provider::from_config(&config, provider_kind)?;
 
     // Create or resume session
     let mut session = if let Some(ref id) = session_id {
