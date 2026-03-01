@@ -3,6 +3,8 @@
 //! Holds the message history, current input buffer, and scroll position
 //! that drive the terminal UI layout.
 
+use super::renderer::RenderEvent;
+
 /// A single chat message displayed in the TUI message history.
 #[derive(Debug, Clone)]
 pub struct ChatMessage {
@@ -23,6 +25,12 @@ pub struct App {
     pub input: String,
     /// Vertical scroll offset for the message history (in lines).
     pub scroll_offset: u16,
+    /// Whether tokens are currently arriving from the LLM.
+    pub streaming: bool,
+    /// Whether we are waiting for the first token (shows spinner).
+    pub waiting: bool,
+    /// Current animation frame for the spinner.
+    pub spinner_frame: usize,
 }
 
 impl App {
@@ -32,6 +40,9 @@ impl App {
             messages: Vec::new(),
             input: String::new(),
             scroll_offset: 0,
+            streaming: false,
+            waiting: false,
+            spinner_frame: 0,
         }
     }
 
@@ -50,6 +61,7 @@ impl App {
             content: text,
         });
         self.scroll_offset = 0;
+        self.waiting = true;
     }
 
     /// Scrolls the message history up by one line.
@@ -60,5 +72,70 @@ impl App {
     /// Scrolls the message history down by one line.
     pub fn scroll_down(&mut self) {
         self.scroll_offset = self.scroll_offset.saturating_sub(1);
+    }
+
+    /// Handles a render event from the LLM streaming channel.
+    pub fn handle_render_event(&mut self, event: RenderEvent) {
+        match event {
+            RenderEvent::Token(token) => {
+                self.waiting = false;
+                self.streaming = true;
+                if let Some(last) = self.messages.last_mut() {
+                    if last.role == "assistant" && self.streaming {
+                        last.content.push_str(&token);
+                        self.scroll_offset = 0;
+                        return;
+                    }
+                }
+                self.messages.push(ChatMessage {
+                    role: "assistant".to_string(),
+                    content: token,
+                });
+                self.scroll_offset = 0;
+            }
+            RenderEvent::ToolStart { name, args: _ } => {
+                self.messages.push(ChatMessage {
+                    role: "tool".to_string(),
+                    content: format!("⚡ Calling {}...", name),
+                });
+            }
+            RenderEvent::ToolResult { name: _, result } => {
+                if let Some(last) = self.messages.last_mut() {
+                    if last.role == "tool" {
+                        if result.len() > 200 {
+                            let end = result.floor_char_boundary(197);
+                            last.content = format!("{}...", &result[..end]);
+                        } else {
+                            last.content = result;
+                        }
+                    }
+                }
+            }
+            RenderEvent::Done => {
+                self.streaming = false;
+                self.waiting = false;
+            }
+            RenderEvent::Error(err) => {
+                self.streaming = false;
+                self.waiting = false;
+                self.messages.push(ChatMessage {
+                    role: "error".to_string(),
+                    content: err,
+                });
+            }
+            RenderEvent::Warn(msg) => {
+                self.messages.push(ChatMessage {
+                    role: "warning".to_string(),
+                    content: msg,
+                });
+            }
+        }
+    }
+
+    /// Advances the spinner animation frame when waiting.
+    pub fn tick_spinner(&mut self) {
+        if self.waiting {
+            self.spinner_frame = (self.spinner_frame + 1) % 4;
+        }
     }
 }

@@ -9,6 +9,7 @@ mod renderer;
 mod ui;
 
 pub use app::App;
+pub use renderer::RenderEvent;
 #[allow(unused_imports)]
 pub use renderer::TuiRenderer;
 pub use ui::draw;
@@ -24,6 +25,7 @@ use crossterm::ExecutableCommand;
 use futures::StreamExt;
 use ratatui::backend::CrosstermBackend;
 use ratatui::Terminal;
+use tokio::sync::mpsc;
 use tokio::time::{interval, Duration};
 
 /// Render tick interval (~60 fps).
@@ -47,10 +49,15 @@ pub async fn run_tui() -> Result<()> {
     let mut events = EventStream::new();
     let mut tick = interval(TICK_DURATION);
 
+    // Channel for streaming LLM events into the TUI.
+    let (tx, mut rx) = mpsc::channel::<RenderEvent>(1000);
+    let _tx = tx; // keep sender alive so rx doesn't immediately close
+
     // --- Main event loop ---
     loop {
         tokio::select! {
             _ = tick.tick() => {
+                app.tick_spinner();
                 terminal.draw(|f| draw(f, &app))?;
             }
             event = events.next() => {
@@ -63,6 +70,9 @@ pub async fn run_tui() -> Result<()> {
                     Some(Err(_)) | None => break,
                     _ => {} // ignore mouse / resize for now
                 }
+            }
+            Some(render_event) = rx.recv() => {
+                app.handle_render_event(render_event);
             }
         }
     }

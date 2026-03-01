@@ -51,6 +51,23 @@ pub fn draw(f: &mut Frame, app: &App) {
         lines.push(Line::from(""));
     }
 
+    // Spinner while waiting for first token
+    if app.waiting {
+        let spinner = crate::constants::SPINNER_FRAMES[app.spinner_frame];
+        lines.push(Line::from(Span::styled(
+            format!("{} Thinking...", spinner),
+            Style::default().fg(Color::Yellow),
+        )));
+    }
+
+    // Streaming cursor indicator
+    if app.streaming {
+        lines.push(Line::from(Span::styled(
+            "▍",
+            Style::default().fg(Color::Green),
+        )));
+    }
+
     let messages_widget = Paragraph::new(lines)
         .block(Block::default().borders(Borders::ALL).title(" kaze "))
         .wrap(Wrap { trim: false })

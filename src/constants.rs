@@ -120,3 +120,8 @@ pub const BASH_STRIPPED_ENV_VARS: &[&str] = &[
 
 /// Maximum number of agent loop iterations before aborting.
 pub const MAX_AGENT_ITERATIONS: usize = 25;
+
+// --- TUI ---
+
+/// ASCII spinner frames for the TUI "thinking" indicator.
+pub const SPINNER_FRAMES: [&str; 4] = ["|", "/", "-", "\\"];
