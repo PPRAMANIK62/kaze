@@ -5,6 +5,7 @@
 
 mod chat;
 mod cli;
+mod compaction;
 mod config;
 mod constants;
 mod format;
@@ -15,7 +16,6 @@ mod provider;
 mod session;
 mod tokens;
 mod tools;
-mod compaction;
 
 use anyhow::Result;
 

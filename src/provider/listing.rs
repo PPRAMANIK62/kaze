@@ -18,14 +18,22 @@ pub async fn list_models(config: &Config) -> Result<()> {
     // Anthropic
     println!("  anthropic:");
     for info in crate::models::ANTHROPIC_MODELS {
-        let marker = if info.name == current { " (default)" } else { "" };
+        let marker = if info.name == current {
+            " (default)"
+        } else {
+            ""
+        };
         println!("    {}{marker}", info.name);
     }
 
     // OpenAI
     println!("\n  openai:");
     for info in crate::models::OPENAI_MODELS {
-        let marker = if info.name == current { " (default)" } else { "" };
+        let marker = if info.name == current {
+            " (default)"
+        } else {
+            ""
+        };
         println!("    {}{marker}", info.name);
     }
 

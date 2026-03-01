@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 
 use super::{Tool, ToolResult};
 
-use crate::constants::{READ_FILE_MAX_SIZE, BINARY_DETECTION_BYTES};
+use crate::constants::{BINARY_DETECTION_BYTES, READ_FILE_MAX_SIZE};
 
 pub struct ReadFileTool {
     /// Project root directory. Paths are resolved relative to this.
@@ -40,7 +40,9 @@ struct ReadFileInput {
 
 #[async_trait::async_trait]
 impl Tool for ReadFileTool {
-    fn name(&self) -> &str { "read_file" }
+    fn name(&self) -> &str {
+        "read_file"
+    }
 
     fn description(&self) -> &str {
         "Read the contents of a file. Path is relative to the project root."
@@ -81,8 +83,8 @@ impl Tool for ReadFileTool {
             ));
         }
 
-        let text = String::from_utf8(content)
-            .map_err(|_| anyhow::anyhow!("File is not valid UTF-8"))?;
+        let text =
+            String::from_utf8(content).map_err(|_| anyhow::anyhow!("File is not valid UTF-8"))?;
         Ok(ToolResult::success(text))
     }
 }

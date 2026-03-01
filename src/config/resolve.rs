@@ -2,7 +2,10 @@
 
 use super::types::{Config, ProviderEntry};
 
-use crate::constants::{COMPACTION_AUTO_DEFAULT, COMPACTION_THRESHOLD_DEFAULT, COMPACTION_KEEP_RECENT_DEFAULT, COMPACTION_RESERVED_DEFAULT};
+use crate::constants::{
+    COMPACTION_AUTO_DEFAULT, COMPACTION_KEEP_RECENT_DEFAULT, COMPACTION_RESERVED_DEFAULT,
+    COMPACTION_THRESHOLD_DEFAULT,
+};
 
 impl Config {
     /// Resolve {env:VAR_NAME} patterns in string fields.
@@ -100,16 +103,22 @@ impl Config {
 
     /// Usage ratio at which auto-compaction triggers.
     pub fn compaction_threshold(&self) -> f64 {
-        self.compaction.auto_threshold.unwrap_or(COMPACTION_THRESHOLD_DEFAULT)
+        self.compaction
+            .auto_threshold
+            .unwrap_or(COMPACTION_THRESHOLD_DEFAULT)
     }
 
     /// Number of recent messages to keep during compaction.
     pub fn compaction_keep_recent(&self) -> usize {
-        self.compaction.keep_recent.unwrap_or(COMPACTION_KEEP_RECENT_DEFAULT)
+        self.compaction
+            .keep_recent
+            .unwrap_or(COMPACTION_KEEP_RECENT_DEFAULT)
     }
 
     /// Reserved token budget for the compaction summary.
     pub fn compaction_reserved(&self) -> usize {
-        self.compaction.reserved.unwrap_or(COMPACTION_RESERVED_DEFAULT)
+        self.compaction
+            .reserved
+            .unwrap_or(COMPACTION_RESERVED_DEFAULT)
     }
 }

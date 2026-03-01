@@ -1,15 +1,17 @@
-pub mod read_file;
 pub mod glob_tool;
 pub mod grep_tool;
+pub mod read_file;
+pub mod write_file;
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::path::PathBuf;
 
-use read_file::ReadFileTool;
 use glob_tool::GlobTool;
 use grep_tool::GrepTool;
+use read_file::ReadFileTool;
+use write_file::WriteFileTool;
 
 /// The result of executing a tool.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -20,11 +22,17 @@ pub struct ToolResult {
 
 impl ToolResult {
     pub fn success(content: String) -> Self {
-        Self { content, is_error: false }
+        Self {
+            content,
+            is_error: false,
+        }
     }
 
     pub fn error(content: String) -> Self {
-        Self { content, is_error: true }
+        Self {
+            content,
+            is_error: true,
+        }
     }
 }
 
@@ -116,7 +124,8 @@ impl ToolRegistry {
         let mut registry = Self::new();
         registry.register(Box::new(ReadFileTool::new(project_root.clone())));
         registry.register(Box::new(GlobTool::new(project_root.clone())));
-        registry.register(Box::new(GrepTool::new(project_root)));
+        registry.register(Box::new(GrepTool::new(project_root.clone())));
+        registry.register(Box::new(WriteFileTool::new(project_root)));
         registry
     }
 }

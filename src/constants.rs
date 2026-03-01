@@ -77,8 +77,7 @@ pub const COMPACTION_KEEP_RECENT_DEFAULT: usize = 4;
 pub const COMPACTION_RESERVED_DEFAULT: usize = 10_000;
 
 /// System prompt for LLM-based context compaction.
-pub const COMPACTION_PROMPT: &str =
-    "Summarize the following conversation context concisely. \
+pub const COMPACTION_PROMPT: &str = "Summarize the following conversation context concisely. \
 Preserve key decisions, code snippets, file paths, and technical details mentioned. \
 Do not add commentary. Return only the summary.\n\n";
 

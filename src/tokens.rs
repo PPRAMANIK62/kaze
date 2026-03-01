@@ -4,11 +4,14 @@
 //! exact tokenizer is used. For Anthropic, Ollama, and unknown models,
 //! cl100k_base (GPT-4 family) serves as a reasonable approximation.
 
+use crate::constants::{
+    CONTEXT_DANGER_THRESHOLD, CONTEXT_WARN_THRESHOLD, TOKENS_CONVERSATION_FRAMING,
+    TOKENS_PER_MESSAGE_OVERHEAD,
+};
 use anyhow::Result;
-use tiktoken_rs::get_bpe_from_model;
 use std::collections::HashMap;
 use std::sync::LazyLock;
-use crate::constants::{CONTEXT_WARN_THRESHOLD, CONTEXT_DANGER_THRESHOLD, TOKENS_PER_MESSAGE_OVERHEAD, TOKENS_CONVERSATION_FRAMING};
+use tiktoken_rs::get_bpe_from_model;
 
 /// Count tokens for a text string using the appropriate tokenizer for the model.
 ///
@@ -68,7 +71,6 @@ static CONTEXT_WINDOWS: LazyLock<HashMap<&'static str, usize>> = LazyLock::new(|
     m
 });
 
-
 pub fn context_window_size(model: &str) -> usize {
     CONTEXT_WINDOWS
         .get(model)
@@ -76,11 +78,21 @@ pub fn context_window_size(model: &str) -> usize {
         .unwrap_or(crate::constants::DEFAULT_CONTEXT_WINDOW)
 }
 
-
 pub enum ContextStatus {
-    Ok { used: usize, limit: usize },
-    Warning { used: usize, limit: usize, percent: u8 },
-    Critical { used: usize, limit: usize, percent: u8 },
+    Ok {
+        used: usize,
+        limit: usize,
+    },
+    Warning {
+        used: usize,
+        limit: usize,
+        percent: u8,
+    },
+    Critical {
+        used: usize,
+        limit: usize,
+        percent: u8,
+    },
 }
 
 pub fn check_context_usage(used: usize, model: &str) -> ContextStatus {
@@ -88,9 +100,17 @@ pub fn check_context_usage(used: usize, model: &str) -> ContextStatus {
     let ratio = used as f64 / limit as f64;
     let percent = (ratio * 100.0) as u8;
     if ratio >= CONTEXT_DANGER_THRESHOLD {
-        ContextStatus::Critical { used, limit, percent }
+        ContextStatus::Critical {
+            used,
+            limit,
+            percent,
+        }
     } else if ratio >= CONTEXT_WARN_THRESHOLD {
-        ContextStatus::Warning { used, limit, percent }
+        ContextStatus::Warning {
+            used,
+            limit,
+            percent,
+        }
     } else {
         ContextStatus::Ok { used, limit }
     }

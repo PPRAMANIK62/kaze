@@ -97,4 +97,3 @@ pub const OLLAMA_MODELS: &[ModelInfo] = &[
         context_window: 32_768,
     },
 ];
-

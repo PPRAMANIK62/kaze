@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 
 use super::{Tool, ToolResult};
 
-use crate::constants::{GREP_MAX_MATCHES, BINARY_DETECTION_BYTES};
+use crate::constants::{BINARY_DETECTION_BYTES, GREP_MAX_MATCHES};
 
 pub struct GrepTool {
     project_root: PathBuf,
@@ -97,21 +97,14 @@ impl GrepTool {
             Err(_) => return,
         };
 
-        let relative = path
-            .strip_prefix(&self.project_root)
-            .unwrap_or(path);
+        let relative = path.strip_prefix(&self.project_root).unwrap_or(path);
 
         for (line_num, line) in text.lines().enumerate() {
             if matches.len() >= GREP_MAX_MATCHES {
                 return;
             }
             if regex.is_match(line) {
-                matches.push(format!(
-                    "{}:{}:{}",
-                    relative.display(),
-                    line_num + 1,
-                    line
-                ));
+                matches.push(format!("{}:{}:{}", relative.display(), line_num + 1, line));
             }
         }
     }
@@ -126,7 +119,9 @@ struct GrepInput {
 
 #[async_trait::async_trait]
 impl Tool for GrepTool {
-    fn name(&self) -> &str { "grep" }
+    fn name(&self) -> &str {
+        "grep"
+    }
 
     fn description(&self) -> &str {
         "Search file contents using a regex pattern. Returns matching lines with file paths and line numbers."
@@ -165,9 +160,9 @@ impl Tool for GrepTool {
         // Resolve search path
         let search_root = if let Some(ref path) = input.path {
             let resolved = self.project_root.join(path);
-            let canonical = resolved.canonicalize().map_err(|_| {
-                anyhow::anyhow!("Search path does not exist: {}", path)
-            })?;
+            let canonical = resolved
+                .canonicalize()
+                .map_err(|_| anyhow::anyhow!("Search path does not exist: {}", path))?;
             let root_canonical = self.project_root.canonicalize()?;
             if !canonical.starts_with(&root_canonical) {
                 return Ok(ToolResult::error(
@@ -189,7 +184,11 @@ impl Tool for GrepTool {
             } else {
                 String::new()
             };
-            Ok(ToolResult::success(format!("{}{}", matches.join("\n"), truncated)))
+            Ok(ToolResult::success(format!(
+                "{}{}",
+                matches.join("\n"),
+                truncated
+            )))
         }
     }
 }

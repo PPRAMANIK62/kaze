@@ -53,7 +53,10 @@ pub(crate) async fn handle_slash_command(
             println!("{}", "Commands:".bold());
             println!("  {} - show conversation history", "/history".cyan());
             println!("  {} - clear conversation", "/clear".cyan());
-            println!("  {} - summarize old context to free tokens", "/compact".cyan());
+            println!(
+                "  {} - summarize old context to free tokens",
+                "/compact".cyan()
+            );
             println!("  {} - show this help", "/help".cyan());
             println!("  {} - exit", "Ctrl+D".cyan());
             Ok(CommandAction::Continue)

@@ -5,10 +5,10 @@
 
 mod session;
 
+use crate::{chat, config, output, provider};
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use colored::Colorize;
-use crate::{chat, config, provider, output};
 
 /// Top-level CLI structure for kaze.
 ///
@@ -102,7 +102,11 @@ pub fn parse() -> Cli {
 /// All handlers are currently stubs that print `TODO` messages.
 pub async fn run(cli: Cli) -> Result<()> {
     match cli.command {
-        Commands::Ask { prompt, model, provider: provider_name } => {
+        Commands::Ask {
+            prompt,
+            model,
+            provider: provider_name,
+        } => {
             let prompt = prompt.join(" ");
             if prompt.is_empty() {
                 anyhow::bail!("No prompt provided. Usage: kaze ask \"your question here\"");
@@ -110,11 +114,8 @@ pub async fn run(cli: Cli) -> Result<()> {
 
             let config = config::Config::load()?;
 
-            let selection = provider::resolve_model(
-                provider_name.as_deref(),
-                model.as_deref(),
-                &config,
-            )?;
+            let selection =
+                provider::resolve_model(provider_name.as_deref(), model.as_deref(), &config)?;
 
             println!(
                 "{} [model: {}]",
@@ -137,18 +138,23 @@ pub async fn run(cli: Cli) -> Result<()> {
             println!();
             println!(
                 "{}",
-                format!("Tokens: {}", crate::tokens::format_token_usage(token_count, limit)).dimmed()
+                format!(
+                    "Tokens: {}",
+                    crate::tokens::format_token_usage(token_count, limit)
+                )
+                .dimmed()
             );
 
             Ok(())
         }
-        Commands::Chat { session, provider: provider_name, model } => {
+        Commands::Chat {
+            session,
+            provider: provider_name,
+            model,
+        } => {
             let mut config = config::Config::load()?;
-            let selection = provider::resolve_model(
-                provider_name.as_deref(),
-                model.as_deref(),
-                &config,
-            )?;
+            let selection =
+                provider::resolve_model(provider_name.as_deref(), model.as_deref(), &config)?;
             config.model = selection.model.clone();
             chat::run_chat(config, session, &selection).await
         }
@@ -172,8 +178,6 @@ pub async fn run(cli: Cli) -> Result<()> {
             }
             Ok(())
         }
-        Commands::Session { action } => {
-            session::handle_session(action).await
-        }
+        Commands::Session { action } => session::handle_session(action).await,
     }
 }

@@ -7,8 +7,8 @@
 use anyhow::Result;
 use colored::Colorize;
 
-use crate::{chat, config, provider, session};
 use super::SessionAction;
+use crate::{chat, config, provider, session};
 
 /// Dispatches a session subcommand to its handler.
 pub(crate) async fn handle_session(action: SessionAction) -> Result<()> {
@@ -42,12 +42,19 @@ pub(crate) async fn handle_session(action: SessionAction) -> Result<()> {
 /// if zero or multiple sessions match.
 pub(crate) fn resolve_session_id(partial: &str) -> Result<String> {
     let sessions = session::Session::list_all()?;
-    let matches: Vec<_> = sessions.iter().filter(|s| s.id.starts_with(partial)).collect();
+    let matches: Vec<_> = sessions
+        .iter()
+        .filter(|s| s.id.starts_with(partial))
+        .collect();
     match matches.len() {
         0 => anyhow::bail!("No session found matching '{}'", partial),
         1 => Ok(matches[0].id.clone()),
         _ => {
-            eprintln!("{} Multiple sessions match '{}':", "ambiguous:".yellow(), partial);
+            eprintln!(
+                "{} Multiple sessions match '{}':",
+                "ambiguous:".yellow(),
+                partial
+            );
             for s in &matches {
                 let title = s.title.as_deref().unwrap_or("(untitled)");
                 eprintln!("  {} {}", &s.id[..8], title.dimmed());
@@ -78,7 +85,8 @@ pub(crate) fn session_list() -> Result<()> {
     // Fixed column widths: ID=10, MSGS=6, UPDATED=18, MODEL~20, gaps between columns
     let fixed_cols = 10 + 6 + 18 + 20;
     // Find the longest actual title
-    let max_title_len = sessions.iter()
+    let max_title_len = sessions
+        .iter()
         .map(|s| s.title.as_deref().unwrap_or("(untitled)").chars().count())
         .max()
         .unwrap_or(5);
@@ -137,15 +145,21 @@ pub(crate) fn session_list() -> Result<()> {
         );
     }
     println!();
-    println!("{} {} sessions. Resume with: {}",
-        "total:".dimmed(), sessions.len(), "kaze session resume <id>".cyan());
+    println!(
+        "{} {} sessions. Resume with: {}",
+        "total:".dimmed(),
+        sessions.len(),
+        "kaze session resume <id>".cyan()
+    );
     Ok(())
 }
 
 /// Deletes a session by its full ID.
 pub(crate) fn session_delete(id: &str) -> Result<()> {
     let sessions = session::Session::list_all()?;
-    let meta = sessions.iter().find(|s| s.id == id)
+    let meta = sessions
+        .iter()
+        .find(|s| s.id == id)
         .ok_or_else(|| anyhow::anyhow!("Session not found: {}", id))?;
     let title = meta.title.as_deref().unwrap_or("(untitled)");
     println!("Deleting session {} (\"{}\")", &id[..8].cyan(), title);

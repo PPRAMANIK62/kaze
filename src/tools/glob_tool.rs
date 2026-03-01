@@ -24,7 +24,9 @@ struct GlobInput {
 
 #[async_trait::async_trait]
 impl Tool for GlobTool {
-    fn name(&self) -> &str { "glob" }
+    fn name(&self) -> &str {
+        "glob"
+    }
 
     fn description(&self) -> &str {
         "List files matching a glob pattern relative to the project root."
@@ -66,9 +68,7 @@ impl Tool for GlobTool {
                 continue; // Skip entries that can't be canonicalized (broken symlinks, etc.)
             }
             // Show paths relative to project root
-            let relative = entry
-                .strip_prefix(&self.project_root)
-                .unwrap_or(&entry);
+            let relative = entry.strip_prefix(&self.project_root).unwrap_or(&entry);
             paths.push(relative.display().to_string());
         }
 

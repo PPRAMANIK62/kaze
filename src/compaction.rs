@@ -55,8 +55,7 @@ pub async fn compact(
         .iter()
         .map(|m| (m.role.to_string(), m.text().to_string()))
         .collect();
-    let tokens_before =
-        tokens::count_conversation_tokens(&msg_pairs_before, model).unwrap_or(0);
+    let tokens_before = tokens::count_conversation_tokens(&msg_pairs_before, model).unwrap_or(0);
 
     // Identify the range to compact: everything between system prompt and recent messages
     let compact_end = messages.len().saturating_sub(keep_recent);
@@ -91,8 +90,7 @@ pub async fn compact(
         .iter()
         .map(|m| (m.role.to_string(), m.text().to_string()))
         .collect();
-    let tokens_after =
-        tokens::count_conversation_tokens(&msg_pairs_after, model).unwrap_or(0);
+    let tokens_after = tokens::count_conversation_tokens(&msg_pairs_after, model).unwrap_or(0);
 
     Ok(CompactionResult::Compacted {
         messages_removed,

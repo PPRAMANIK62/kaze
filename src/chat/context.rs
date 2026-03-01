@@ -24,7 +24,9 @@ pub(crate) async fn handle_context_management(
     config: &Config,
 ) -> Result<()> {
     // Count tokens across the full conversation
-    let msg_pairs: Vec<(String, String)> = session.messages.iter()
+    let msg_pairs: Vec<(String, String)> = session
+        .messages
+        .iter()
         .map(|m| (m.role.to_string(), m.text().to_string()))
         .collect();
     let token_count = crate::tokens::count_conversation_tokens(&msg_pairs, model_name)?;
@@ -38,24 +40,34 @@ pub(crate) async fn handle_context_management(
                 format!("Tokens: {}", crate::tokens::format_token_usage(used, limit)).dimmed()
             );
         }
-        ContextStatus::Warning { used, limit, percent } => {
+        ContextStatus::Warning {
+            used,
+            limit,
+            percent,
+        } => {
             println!(
                 "{}",
                 format!(
                     "Tokens: {} ({}%) -- consider /compact",
                     crate::tokens::format_token_usage(used, limit),
                     percent,
-                ).yellow()
+                )
+                .yellow()
             );
         }
-        ContextStatus::Critical { used, limit, percent } => {
+        ContextStatus::Critical {
+            used,
+            limit,
+            percent,
+        } => {
             println!(
                 "{}",
                 format!(
                     "Tokens: {} ({}%) -- compacting...",
                     crate::tokens::format_token_usage(used, limit),
                     percent,
-                ).red()
+                )
+                .red()
             );
             match perform_compaction(
                 session,
@@ -121,11 +133,11 @@ pub(crate) fn truncate_oldest_messages(messages: &mut Vec<Message>, model: &str)
     let target = (limit as f64 * 0.70) as usize;
 
     while messages.len() > 1 {
-        let msg_pairs: Vec<(String, String)> = messages.iter()
+        let msg_pairs: Vec<(String, String)> = messages
+            .iter()
             .map(|m| (m.role.to_string(), m.text().to_string()))
             .collect();
-        let used = crate::tokens::count_conversation_tokens(&msg_pairs, model)
-            .unwrap_or(0);
+        let used = crate::tokens::count_conversation_tokens(&msg_pairs, model).unwrap_or(0);
         if used <= target {
             break;
         }
@@ -149,13 +161,8 @@ pub(crate) async fn perform_compaction(
     label: &str,
     event_name: &str,
 ) -> Result<CompactionResult> {
-    let result = compaction::compact(
-        &mut session.messages,
-        provider,
-        model_name,
-        keep_recent,
-    )
-    .await?;
+    let result =
+        compaction::compact(&mut session.messages, provider, model_name, keep_recent).await?;
 
     if let CompactionResult::Compacted {
         messages_removed,

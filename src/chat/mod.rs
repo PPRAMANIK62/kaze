@@ -14,10 +14,10 @@ use rustyline::DefaultEditor;
 use std::io::{self, Write};
 
 use crate::config::Config;
+use crate::format;
 use crate::message::Message;
 use crate::output::StdoutRenderer;
-use crate::provider::{Provider, ModelSelection};
-use crate::format;
+use crate::provider::{ModelSelection, Provider};
 use crate::session::Session;
 
 /// Runs the interactive chat REPL.
@@ -38,7 +38,11 @@ use crate::session::Session;
 /// * `config` — The loaded kaze configuration.
 /// * `session_id` — Optional session ID to resume an existing session.
 /// * `selection` — The resolved provider + model to use.
-pub async fn run_chat(config: Config, session_id: Option<String>, selection: &ModelSelection) -> Result<()> {
+pub async fn run_chat(
+    config: Config,
+    session_id: Option<String>,
+    selection: &ModelSelection,
+) -> Result<()> {
     let provider = Provider::from_config(&config, selection)?;
 
     // Create or resume session
@@ -125,7 +129,10 @@ pub async fn run_chat(config: Config, session_id: Option<String>, selection: &Mo
                 let mut renderer = StdoutRenderer::new();
 
                 // Stream response
-                match provider.stream_with_history(&session.messages, &mut renderer).await {
+                match provider
+                    .stream_with_history(&session.messages, &mut renderer)
+                    .await
+                {
                     Ok(response) => {
                         // Erase raw streamed output and reprint with formatting
                         let total_lines = renderer.visual_line_count();
