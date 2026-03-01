@@ -35,6 +35,7 @@ kaze is built on [rig-core](https://github.com/0xPlaygrounds/rig) for LLM abstra
 - `--provider` flag on `ask` and `chat` commands (anthropic, openai, openrouter, ollama)
 - `--model` flag to override model, supports `provider/model` shorthand (e.g., `openai/gpt-4.1`)
 - Token counting with BPE tokenization (tiktoken-rs) — displays usage after each response
+- Context window awareness: per-model limits, warning at 80% usage, auto-truncation at 95%
 
 ## Quick Start
 

@@ -6,6 +6,8 @@
 
 use anyhow::Result;
 use tiktoken_rs::get_bpe_from_model;
+use std::collections::HashMap;
+use std::sync::LazyLock;
 
 /// Count tokens for a text string using the appropriate tokenizer for the model.
 ///
@@ -51,4 +53,46 @@ fn format_number(n: usize) -> String {
         result.push(c);
     }
     result.chars().rev().collect()
+}
+
+static CONTEXT_WINDOWS: LazyLock<HashMap<&'static str, usize>> = LazyLock::new(|| {
+    let mut m = HashMap::new();
+    for info in crate::models::ANTHROPIC_MODELS
+        .iter()
+        .chain(crate::models::OPENAI_MODELS.iter())
+        .chain(crate::models::OLLAMA_MODELS.iter())
+    {
+        m.insert(info.name, info.context_window);
+    }
+    m
+});
+
+
+pub fn context_window_size(model: &str) -> usize {
+    CONTEXT_WINDOWS
+        .get(model)
+        .copied()
+        .unwrap_or(crate::models::DEFAULT_CONTEXT_WINDOW)
+}
+
+pub const WARN_THRESHOLD: f64 = 0.80;
+pub const DANGER_THRESHOLD: f64 = 0.95;
+
+pub enum ContextStatus {
+    Ok { used: usize, limit: usize },
+    Warning { used: usize, limit: usize, percent: u8 },
+    Critical { used: usize, limit: usize, percent: u8 },
+}
+
+pub fn check_context_usage(used: usize, model: &str) -> ContextStatus {
+    let limit = context_window_size(model);
+    let ratio = used as f64 / limit as f64;
+    let percent = (ratio * 100.0) as u8;
+    if ratio >= DANGER_THRESHOLD {
+        ContextStatus::Critical { used, limit, percent }
+    } else if ratio >= WARN_THRESHOLD {
+        ContextStatus::Warning { used, limit, percent }
+    } else {
+        ContextStatus::Ok { used, limit }
+    }
 }

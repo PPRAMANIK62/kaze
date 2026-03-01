@@ -9,6 +9,7 @@ mod config;
 mod constants;
 mod format;
 mod message;
+mod models;
 mod output;
 mod provider;
 mod session;

@@ -16,6 +16,7 @@ use crate::output::StdoutRenderer;
 use crate::provider::{Provider, ModelSelection};
 use crate::format;
 use crate::session::Session;
+use crate::tokens::ContextStatus;
 
 /// Runs the interactive chat REPL.
 ///
@@ -154,11 +155,37 @@ pub async fn run_chat(config: Config, session_id: Option<String>, selection: &Mo
                             .map(|m| (m.role.to_string(), m.text().to_string()))
                             .collect();
                         let token_count = crate::tokens::count_conversation_tokens(&msg_pairs, &model_name)?;
-                        let limit = 128_000; // Will come from step 14's context window lookup
-                        println!(
-                            "{}",
-                            format!("Tokens: {}", crate::tokens::format_token_usage(token_count, limit)).dimmed()
-                        );
+                        let status = crate::tokens::check_context_usage(token_count, &model_name);
+
+                        match status {
+                            ContextStatus::Ok { used, limit } => {
+                                println!(
+                                    "{}",
+                                    format!("Tokens: {}", crate::tokens::format_token_usage(used, limit)).dimmed()
+                                );
+                            }
+                            ContextStatus::Warning { used, limit, percent } => {
+                                println!(
+                                    "{}",
+                                    format!(
+                                        "Tokens: {} ({}%) -- consider /compact",
+                                        crate::tokens::format_token_usage(used, limit),
+                                        percent,
+                                    ).yellow()
+                                );
+                            }
+                            ContextStatus::Critical { used, limit, percent } => {
+                                println!(
+                                    "{}",
+                                    format!(
+                                        "Tokens: {} ({}%) -- compacting...",
+                                        crate::tokens::format_token_usage(used, limit),
+                                        percent,
+                                    ).red()
+                                );
+                                truncate_oldest_messages(&mut session.messages, &model_name);
+                            }
+                        }
                     }
                     Err(e) => {
                         // Pop the failed user message so user can retry
@@ -190,4 +217,26 @@ pub async fn run_chat(config: Config, session_id: Option<String>, selection: &Mo
     let _ = rl.save_history(&history_path);
 
     Ok(())
+}
+
+/// Remove the oldest non-system messages until under 70% of context window.
+fn truncate_oldest_messages(messages: &mut Vec<Message>, model: &str) {
+    let limit = crate::tokens::context_window_size(model);
+    let target = (limit as f64 * 0.70) as usize;
+
+    while messages.len() > 1 {
+        let msg_pairs: Vec<(String, String)> = messages.iter()
+            .map(|m| (m.role.to_string(), m.text().to_string()))
+            .collect();
+        let used = crate::tokens::count_conversation_tokens(&msg_pairs, model)
+            .unwrap_or(0);
+        if used <= target {
+            break;
+        }
+        if let Some(pos) = messages.iter().position(|m| m.role != crate::message::Role::System) {
+            messages.remove(pos);
+        } else {
+            break;
+        }
+    }
 }

@@ -18,25 +18,6 @@ use crate::output::Renderer;
 /// Default provider name when nothing is configured.
 const DEFAULT_PROVIDER: &str = "anthropic";
 
-/// Known models for cloud providers (updated with kaze releases).
-const ANTHROPIC_MODELS: &[&str] = &[
-    "claude-opus-4-6",
-    "claude-sonnet-4-6",
-    "claude-haiku-4-5",
-    "claude-sonnet-4-5",
-    "claude-opus-4",
-];
-
-const OPENAI_MODELS: &[&str] = &[
-    "gpt-5.2",
-    "gpt-5-mini",
-    "gpt-5-nano",
-    "gpt-4.1",
-    "gpt-4.1-mini",
-    "gpt-4.1-nano",
-    "o3",
-    "o4-mini",
-];
 
 /// Resolved provider + model pair.
 pub struct ModelSelection {
@@ -373,16 +354,16 @@ pub async fn list_models(config: &Config) -> Result<()> {
 
     // Anthropic
     println!("  anthropic:");
-    for model in ANTHROPIC_MODELS {
-        let marker = if *model == current { " (default)" } else { "" };
-        println!("    {model}{marker}");
+    for info in crate::models::ANTHROPIC_MODELS {
+        let marker = if info.name == current { " (default)" } else { "" };
+        println!("    {}{marker}", info.name);
     }
 
     // OpenAI
     println!("\n  openai:");
-    for model in OPENAI_MODELS {
-        let marker = if *model == current { " (default)" } else { "" };
-        println!("    {model}{marker}");
+    for info in crate::models::OPENAI_MODELS {
+        let marker = if info.name == current { " (default)" } else { "" };
+        println!("    {}{marker}", info.name);
     }
 
     // Ollama (dynamic)
