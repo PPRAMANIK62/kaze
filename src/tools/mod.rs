@@ -1,6 +1,13 @@
+pub mod read_file;
+pub mod glob_tool;
+
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::path::PathBuf;
+
+use read_file::ReadFileTool;
+use glob_tool::GlobTool;
 
 /// The result of executing a tool.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -100,3 +107,16 @@ impl ToolRegistry {
         self.tools.is_empty()
     }
 }
+
+impl ToolRegistry {
+    /// Create a registry with all built-in tools.
+    pub fn with_builtins(project_root: PathBuf) -> Self {
+        let mut registry = Self::new();
+        registry.register(Box::new(ReadFileTool::new(project_root.clone())));
+        registry.register(Box::new(GlobTool::new(project_root)));
+        registry
+    }
+}
+
+#[cfg(test)]
+mod tests;

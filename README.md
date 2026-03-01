@@ -37,6 +37,8 @@ kaze is built on [rig-core](https://github.com/0xPlaygrounds/rig) for LLM abstra
 - Token counting with BPE tokenization (tiktoken-rs) — displays usage after each response
 - Context window awareness: per-model limits, warning at 80% usage, auto-truncation at 95%
 - Context compaction: LLM-based summarization of old messages (`/compact` or automatic at 90% usage)
+- Tool framework: `Tool` trait, `ToolRegistry` with JSON Schema definitions for LLM function calling
+- Built-in tools: `read_file` (with path validation, size limits, binary detection), `glob` (pattern matching with project root containment)
 
 ## Quick Start
 
@@ -133,7 +135,7 @@ kaze is being built incrementally in 34 steps across 8 phases.
 | 2 | Multi-turn chat + sessions | Done |
 | 3 | Multi-provider (OpenAI, OpenRouter, Ollama) | Done |
 | 4 | Context management (token counting, compaction) | Done |
-| 5 | Tools (read, write, edit, grep, bash) | Planned |
+| 5 | Tools (read, write, edit, grep, bash) | In Progress |
 | 6 | Agent loop | Planned |
 | 7 | TUI (ratatui) | Planned |
 | 8 | Advanced (MCP, custom agents, rules) | Planned |

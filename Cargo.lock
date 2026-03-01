@@ -1019,6 +1019,7 @@ dependencies = [
  "dirs",
  "dotenvy",
  "futures",
+ "glob",
  "reqwest",
  "rig-core",
  "rustyline",

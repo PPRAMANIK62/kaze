@@ -58,6 +58,9 @@ tiktoken-rs = "0.6"
 # Async trait support for tool abstraction
 async-trait = "0.1"
 
+# Glob pattern matching for file tools
+glob = "0.3"
+
 [profile.release]
 opt-level = "z"
 lto = true
