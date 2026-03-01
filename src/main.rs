@@ -20,6 +20,7 @@ mod provider;
 mod session;
 mod tokens;
 mod tools;
+mod tui;
 
 use anyhow::Result;
 

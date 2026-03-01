@@ -50,6 +50,9 @@ pub enum Commands {
         /// Model to use (overrides config)
         #[arg(short, long)]
         model: Option<String>,
+        /// Open the terminal UI
+        #[arg(long)]
+        tui: bool,
     },
     /// List available models
     Models,
@@ -171,12 +174,17 @@ pub async fn run(cli: Cli) -> Result<()> {
             session,
             provider: provider_name,
             model,
+            tui,
         } => {
-            let mut config = config::Config::load()?;
-            let selection =
-                provider::resolve_model(provider_name.as_deref(), model.as_deref(), &config)?;
-            config.model = selection.model.clone();
-            chat::run_chat(config, session, &selection).await
+            if tui {
+                crate::tui::run_tui().await
+            } else {
+                let mut config = config::Config::load()?;
+                let selection =
+                    provider::resolve_model(provider_name.as_deref(), model.as_deref(), &config)?;
+                config.model = selection.model.clone();
+                chat::run_chat(config, session, &selection).await
+            }
         }
         Commands::Models => {
             let config = config::Config::load()?;
