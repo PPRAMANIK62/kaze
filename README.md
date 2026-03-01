@@ -34,6 +34,7 @@ kaze is built on [rig-core](https://github.com/0xPlaygrounds/rig) for LLM abstra
 - Multi-provider support: Anthropic (default), OpenAI, OpenRouter, Ollama (local)
 - `--provider` flag on `ask` and `chat` commands (anthropic, openai, openrouter, ollama)
 - `--model` flag to override model, supports `provider/model` shorthand (e.g., `openai/gpt-4.1`)
+- Token counting with BPE tokenization (tiktoken-rs) — displays usage after each response
 
 ## Quick Start
 
@@ -123,8 +124,8 @@ kaze is being built incrementally in 34 steps across 8 phases.
 | 0 | Project scaffold | Done |
 | 1 | Core (ask, streaming, config) | Done |
 | 2 | Multi-turn chat + sessions | Done |
-| 3 | Multi-provider (OpenAI, OpenRouter, Ollama) | In Progress |
-| 4 | Context management (token counting, compaction) | Planned |
+| 3 | Multi-provider (OpenAI, OpenRouter, Ollama) | Done |
+| 4 | Context management (token counting, compaction) | In Progress |
 | 5 | Tools (read, write, edit, grep, bash) | Planned |
 | 6 | Agent loop | Planned |
 | 7 | TUI (ratatui) | Planned |

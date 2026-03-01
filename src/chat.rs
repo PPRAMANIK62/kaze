@@ -82,6 +82,8 @@ pub async fn run_chat(config: Config, session_id: Option<String>, selection: &Mo
         let _ = rl.load_history(&history_path);
     }
 
+    let model_name = config.model.clone();
+
     loop {
         let readline = rl.readline(&format!("{} ", ">".green().bold()));
 
@@ -146,12 +148,17 @@ pub async fn run_chat(config: Config, session_id: Option<String>, selection: &Mo
                         // Reprint with markdown-lite formatting (no role label in chat)
                         println!("{}", format::render_markdown_lite(&response));
                         println!();
+                        // Count tokens across the full conversation
+                        session.append(Message::assistant(response.clone()))?;
+                        let msg_pairs: Vec<(String, String)> = session.messages.iter()
+                            .map(|m| (m.role.to_string(), m.text().to_string()))
+                            .collect();
+                        let token_count = crate::tokens::count_conversation_tokens(&msg_pairs, &model_name)?;
+                        let limit = 128_000; // Will come from step 14's context window lookup
                         println!(
                             "{}",
-                            format!("[{} tokens]", renderer.token_count()).dimmed()
+                            format!("Tokens: {}", crate::tokens::format_token_usage(token_count, limit)).dimmed()
                         );
-
-                        session.append(Message::assistant(response.clone()))?;
                     }
                     Err(e) => {
                         // Pop the failed user message so user can retry

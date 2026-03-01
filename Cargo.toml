@@ -52,6 +52,9 @@ terminal_size = "0.4"
 # Readline support for interactive chat
 rustyline = "15"
 
+# Token counting (BPE tokenization)
+tiktoken-rs = "0.6"
+
 [profile.release]
 opt-level = "z"
 lto = true

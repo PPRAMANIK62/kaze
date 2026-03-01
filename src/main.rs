@@ -12,6 +12,7 @@ mod message;
 mod output;
 mod provider;
 mod session;
+mod tokens;
 
 use anyhow::Result;
 

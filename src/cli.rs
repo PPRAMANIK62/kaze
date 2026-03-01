@@ -125,9 +125,18 @@ pub async fn run(cli: Cli) -> Result<()> {
 
             let provider = provider::Provider::from_config(&config, &selection)?;
             let mut renderer = output::StdoutRenderer::new();
-            let _response = provider
+            let response = provider
                 .stream(&prompt, config.system_prompt.as_deref(), &mut renderer)
                 .await?;
+
+            // Show token usage
+            let token_count = crate::tokens::count_tokens(&response, &selection.model)?;
+            let limit = 128_000;
+            println!();
+            println!(
+                "{}",
+                format!("Tokens: {}", crate::tokens::format_token_usage(token_count, limit)).dimmed()
+            );
 
             Ok(())
         }

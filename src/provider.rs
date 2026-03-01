@@ -8,7 +8,6 @@ use anyhow::{anyhow, Context, Result};
 use futures::StreamExt;
 use rig::agent::MultiTurnStreamItem;
 use rig::client::CompletionClient;
-use rig::completion::Prompt;
 use rig::message::{Message as RigMessage, Text};
 use rig::providers::{anthropic, openai, openrouter};
 use rig::streaming::{StreamedAssistantContent, StreamingChat, StreamingPrompt};
@@ -272,30 +271,6 @@ impl Provider {
                 })
             }
         }
-    }
-
-    /// Sends a prompt to the configured model and returns the full response.
-    ///
-    /// Builds a fresh agent for each call, optionally attaching a system
-    /// prompt as the agent's preamble.
-    ///
-    /// # Arguments
-    ///
-    /// * `prompt` — The user's message to send to the model.
-    /// * `system_prompt` — An optional system-level instruction prepended
-    ///   to the conversation.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the LLM API call fails (network error,
-    /// invalid key, rate limit, etc.).
-    pub async fn complete(&self, prompt: &str, system_prompt: Option<&str>) -> Result<String> {
-        let response = dispatch!(self, |client| {
-            with_agent!(client, &self.model, system_prompt, |agent| {
-                agent.prompt(prompt).await.context("LLM API call failed")?
-            })
-        });
-        Ok(response)
     }
 
     /// Streams a prompt response, rendering tokens as they arrive via the given [`Renderer`].
