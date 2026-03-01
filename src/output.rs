@@ -39,16 +39,6 @@ impl StdoutRenderer {
         }
     }
 
-    /// Returns the total number of tokens rendered.
-    pub fn token_count(&self) -> usize {
-        self.token_count
-    }
-
-    /// Returns the accumulated raw text from all tokens.
-    pub fn raw_text(&self) -> &str {
-        &self.buffer
-    }
-
     /// Calculates the number of cursor-up movements needed to erase
     /// all streamed output (raw text + render_done output).
     ///

@@ -1,111 +1,22 @@
-//! LLM provider abstraction for kaze.
+//! LLM provider client and streaming implementation.
 //!
-//! Wraps rig-core's provider clients behind a [`Provider`] struct with enum
-//! dispatch, keeping provider-specific details out of the CLI layer. Supports
-//! Anthropic, OpenAI, OpenRouter, and Ollama (local) via [`ProviderKind`].
+//! Contains the [`Provider`] struct which wraps rig-core provider clients
+//! behind enum dispatch, keeping provider-specific details out of the CLI
+//! layer. Supports Anthropic, OpenAI, OpenRouter, and Ollama.
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result};
 use futures::StreamExt;
 use rig::agent::MultiTurnStreamItem;
 use rig::client::CompletionClient;
+use rig::completion::Prompt;
 use rig::message::{Message as RigMessage, Text};
 use rig::providers::{anthropic, openai, openrouter};
 use rig::streaming::{StreamedAssistantContent, StreamingChat, StreamingPrompt};
-use rig::completion::Prompt;
 
+use super::kind::ProviderKind;
+use super::resolve::ModelSelection;
 use crate::config::Config;
 use crate::output::Renderer;
-
-/// Default provider name when nothing is configured.
-const DEFAULT_PROVIDER: &str = "anthropic";
-
-
-/// Resolved provider + model pair.
-pub struct ModelSelection {
-    pub provider: ProviderKind,
-    pub model: String,
-}
-
-/// Identifies which LLM provider to use.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ProviderKind {
-    /// Anthropic (Claude models).
-    Anthropic,
-    /// OpenAI (GPT models, via the Responses API).
-    OpenAI,
-    /// OpenRouter (multi-provider gateway).
-    OpenRouter,
-    /// Ollama (local models via OpenAI-compatible API).
-    Ollama,
-}
-
-impl ProviderKind {
-    /// Parses a provider name string into a [`ProviderKind`].
-    ///
-    /// Matching is case-insensitive. Returns an error for unknown providers.
-    pub fn from_str(s: &str) -> Result<Self> {
-        match s.to_lowercase().as_str() {
-            "anthropic" => Ok(Self::Anthropic),
-            "openai" => Ok(Self::OpenAI),
-            "openrouter" => Ok(Self::OpenRouter),
-            "ollama" => Ok(Self::Ollama),
-            other => Err(anyhow!(
-                "Unknown provider: {other}. Supported: anthropic, openai, openrouter, ollama"
-            )),
-        }
-    }
-}
-
-/// Returns the default model identifier for a given provider.
-pub fn default_model_for(provider: &ProviderKind) -> &'static str {
-    match provider {
-        ProviderKind::Anthropic => crate::constants::DEFAULT_MODEL,
-        ProviderKind::OpenAI => crate::constants::DEFAULT_OPENAI_MODEL,
-        ProviderKind::OpenRouter => crate::constants::DEFAULT_OPENROUTER_MODEL,
-        ProviderKind::Ollama => crate::constants::OLLAMA_DEFAULT_MODEL,
-    }
-}
-
-/// Resolve which provider and model to use.
-/// Priority: CLI flags > config.toml > defaults.
-///
-/// Accepts these formats:
-///   --model anthropic/claude-sonnet-4-5  (provider/model shorthand, only when --provider is omitted)
-///   --provider openrouter --model "org/model-name"  (slash preserved as model name)
-///   --provider anthropic --model claude-sonnet-4-5
-///   --provider anthropic  (uses provider's default model)
-///   (nothing)  (uses config.toml, then hardcoded default)
-pub fn resolve_model(
-    cli_provider: Option<&str>,
-    cli_model: Option<&str>,
-    config: &Config,
-) -> Result<ModelSelection> {
-    // If --model contains a slash AND no explicit --provider, parse as provider/model shorthand
-    if cli_provider.is_none() {
-        if let Some(model_str) = cli_model {
-            if let Some((prov, model)) = model_str.split_once('/') {
-                return Ok(ModelSelection {
-                    provider: ProviderKind::from_str(prov)?,
-                    model: model.to_string(),
-                });
-            }
-        }
-    }
-
-    // Resolve provider
-    let provider_str = cli_provider
-        .or(config.provider_name())
-        .unwrap_or(DEFAULT_PROVIDER);
-    let provider = ProviderKind::from_str(provider_str)?;
-
-    // Resolve model
-    let model = cli_model
-        .map(String::from)
-        .or_else(|| config.model_name())
-        .unwrap_or_else(|| default_model_for(&provider).to_string());
-
-    Ok(ModelSelection { provider, model })
-}
 
 /// Internal enum wrapping provider-specific clients.
 enum ClientKind {
@@ -360,70 +271,4 @@ impl Provider {
             Ok(response?)
         })
     }
-}
-
-/// List all available models, grouped by provider.
-pub async fn list_models(config: &Config) -> Result<()> {
-    let selection = resolve_model(None, None, config)?;
-    let current = &selection.model;
-
-    println!("Available models:\n");
-
-    // Anthropic
-    println!("  anthropic:");
-    for info in crate::models::ANTHROPIC_MODELS {
-        let marker = if info.name == current { " (default)" } else { "" };
-        println!("    {}{marker}", info.name);
-    }
-
-    // OpenAI
-    println!("\n  openai:");
-    for info in crate::models::OPENAI_MODELS {
-        let marker = if info.name == current { " (default)" } else { "" };
-        println!("    {}{marker}", info.name);
-    }
-
-    // Ollama (dynamic)
-    println!("\n  ollama:");
-    match list_ollama_models(config).await {
-        Ok(models) if models.is_empty() => {
-            println!("    (no models found -- run `ollama pull llama3`)");
-        }
-        Ok(models) => {
-            for model in &models {
-                let marker = if model == current { " (default)" } else { "" };
-                println!("    {model}{marker}");
-            }
-        }
-        Err(_) => {
-            println!("    (ollama not running)");
-        }
-    }
-
-    Ok(())
-}
-
-/// Query Ollama's local API for available models.
-async fn list_ollama_models(config: &Config) -> Result<Vec<String>> {
-    let base_url = config
-        .provider
-        .ollama
-        .as_ref()
-        .and_then(|o| o.base_url.as_deref())
-        .unwrap_or(crate::constants::OLLAMA_DEFAULT_BASE_URL);
-
-    let url = format!("{base_url}/api/tags");
-
-    let resp: serde_json::Value = reqwest::get(&url).await?.json().await?;
-
-    let models = resp["models"]
-        .as_array()
-        .map(|arr| {
-            arr.iter()
-                .filter_map(|m| m["name"].as_str().map(String::from))
-                .collect()
-        })
-        .unwrap_or_default();
-
-    Ok(models)
 }
