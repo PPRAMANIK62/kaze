@@ -12,6 +12,7 @@ use colored::Colorize;
 use rustyline::error::ReadlineError;
 use rustyline::DefaultEditor;
 use std::io::{self, Write};
+use std::sync::Arc;
 
 use crate::config::Config;
 use crate::format;
@@ -47,6 +48,11 @@ pub async fn run_chat(
     let provider = Provider::from_config(&config, selection)?;
     let project_root = std::env::current_dir()?;
     let tools = ToolRegistry::with_builtins(project_root);
+
+    let permission_manager = Arc::new(crate::permissions::PermissionManager::new(
+        config.permissions.clone(),
+    ));
+    let hook = crate::hooks::KazePermissionHook::new(permission_manager);
 
     // Create or resume session
     let mut session = if let Some(ref id) = session_id {
@@ -133,7 +139,13 @@ pub async fn run_chat(
 
                 // Stream response
                 match provider
-                    .stream_with_tools(&session.messages, &tools, &mut renderer, crate::constants::MAX_AGENT_ITERATIONS)
+                    .stream_with_tools(
+                        &session.messages,
+                        &tools,
+                        &mut renderer,
+                        crate::constants::MAX_AGENT_ITERATIONS,
+                        hook.clone(),
+                    )
                     .await
                 {
                     Ok(response) => {

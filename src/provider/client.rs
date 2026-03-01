@@ -117,18 +117,20 @@ macro_rules! process_stream {
 /// The type-state change from `NoToolConfig` to `WithBuilderTools` means
 /// this must be a separate macro — the two builder paths produce different types.
 macro_rules! with_agent_tools {
-    ($client:expr, $model:expr, $sys:expr, $rig_tools:expr, |$agent:ident| $body:expr) => {{
+    ($client:expr, $model:expr, $sys:expr, $hook:expr, $rig_tools:expr, |$agent:ident| $body:expr) => {{
         let $agent = if let Some(sys) = $sys {
             $client
                 .agent($model)
                 .preamble(sys)
                 .max_tokens(crate::constants::MAX_TOKENS)
+                .hook($hook)
                 .tools($rig_tools)
                 .build()
         } else {
             $client
                 .agent($model)
                 .max_tokens(crate::constants::MAX_TOKENS)
+                .hook($hook)
                 .tools($rig_tools)
                 .build()
         };
@@ -377,6 +379,7 @@ impl Provider {
         tools: &ToolRegistry,
         renderer: &mut dyn Renderer,
         max_turns: usize,
+        hook: crate::hooks::KazePermissionHook,
     ) -> Result<String> {
         // Extract system prompt from history (first System message becomes preamble)
         let system_prompt = history
@@ -404,13 +407,19 @@ impl Provider {
         dispatch!(self, |client| {
             // Build rig_tools inside dispatch! so each match arm gets a fresh Vec
             let rig_tools = tools.to_rig_tools();
-            let mut stream =
-                with_agent_tools!(client, &self.model, system_prompt, rig_tools, |agent| {
+            let mut stream = with_agent_tools!(
+                client,
+                &self.model,
+                system_prompt,
+                hook.clone(),
+                rig_tools,
+                |agent| {
                     agent
                         .stream_chat(prompt_text.clone(), chat_history.clone())
                         .multi_turn(max_turns)
                         .await
-                });
+                }
+            );
             process_stream_with_tools!(stream, renderer, full_response, tool_names);
         });
 

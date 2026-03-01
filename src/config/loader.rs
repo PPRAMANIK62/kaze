@@ -91,6 +91,14 @@ base_url = "http://localhost:11434"
                     .or(global.compaction.keep_recent),
                 reserved: project.compaction.reserved.or(global.compaction.reserved),
             },
+            // Project permissions override global; fall back to global if project has none
+            permissions: if project.permissions.tools.is_empty()
+                && project.permissions.bash_commands.is_empty()
+            {
+                global.permissions
+            } else {
+                project.permissions
+            },
         }
     }
 }

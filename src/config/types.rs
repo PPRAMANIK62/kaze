@@ -1,5 +1,6 @@
 //! Struct definitions and serde defaults for kaze configuration.
 
+use crate::permissions::PermissionConfig;
 use serde::{Deserialize, Serialize};
 
 /// Root configuration for kaze, deserialized from `config.toml`.
@@ -23,6 +24,9 @@ pub struct Config {
     /// Context compaction settings.
     #[serde(default)]
     pub compaction: CompactionConfig,
+    /// Permission settings for tool execution.
+    #[serde(default)]
+    pub permissions: PermissionConfig,
 }
 
 /// Returns the default model identifier (`"claude-sonnet-4-5"`).
@@ -94,6 +98,7 @@ impl Default for Config {
             system_prompt: default_system_prompt(),
             default_provider: None,
             compaction: CompactionConfig::default(),
+            permissions: PermissionConfig::default(),
         }
     }
 }

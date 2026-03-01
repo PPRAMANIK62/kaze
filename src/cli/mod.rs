@@ -9,6 +9,7 @@ use crate::{agent, chat, config, message::Message, output, provider, tools::Tool
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use colored::Colorize;
+use std::sync::Arc;
 
 /// Top-level CLI structure for kaze.
 ///
@@ -136,6 +137,11 @@ pub async fn run(cli: Cli) -> Result<()> {
             }
             messages.push(Message::user(&prompt));
 
+            let permission_manager = Arc::new(crate::permissions::PermissionManager::new(
+                config.permissions.clone(),
+            ));
+            let hook = crate::hooks::KazePermissionHook::new(permission_manager);
+
             let mut renderer = output::StdoutRenderer::new();
             let response = agent::agent_loop(
                 &provider,
@@ -143,9 +149,9 @@ pub async fn run(cli: Cli) -> Result<()> {
                 &tools,
                 &mut renderer,
                 crate::constants::MAX_AGENT_ITERATIONS,
+                hook,
             )
             .await?;
-
             // Show token usage
             let token_count = crate::tokens::count_tokens(&response, &selection.model)?;
             let limit = 128_000;
