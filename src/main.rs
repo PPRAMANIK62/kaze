@@ -9,6 +9,7 @@ mod cli;
 mod compaction;
 mod config;
 mod constants;
+mod diff;
 mod format;
 mod hooks;
 mod message;

@@ -64,6 +64,10 @@ glob = "0.3"
 # Regex for grep tool
 regex = "1"
 
+
+# Diff generation for file change previews
+similar = "2"
+
 [profile.release]
 opt-level = "z"
 lto = true

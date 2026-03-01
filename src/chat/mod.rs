@@ -47,12 +47,12 @@ pub async fn run_chat(
 ) -> Result<()> {
     let provider = Provider::from_config(&config, selection)?;
     let project_root = std::env::current_dir()?;
-    let tools = ToolRegistry::with_builtins(project_root);
+    let tools = ToolRegistry::with_builtins(project_root.clone());
 
     let permission_manager = Arc::new(crate::permissions::PermissionManager::new(
         config.permissions.clone(),
     ));
-    let hook = crate::hooks::KazePermissionHook::new(permission_manager);
+    let hook = crate::hooks::KazeHook::new(permission_manager, project_root);
 
     // Create or resume session
     let mut session = if let Some(ref id) = session_id {

@@ -129,7 +129,7 @@ pub async fn run(cli: Cli) -> Result<()> {
 
             let provider = provider::Provider::from_config(&config, &selection)?;
             let project_root = std::env::current_dir()?;
-            let tools = ToolRegistry::with_builtins(project_root);
+            let tools = ToolRegistry::with_builtins(project_root.clone());
 
             let mut messages = Vec::new();
             if let Some(ref sp) = config.system_prompt {
@@ -140,7 +140,7 @@ pub async fn run(cli: Cli) -> Result<()> {
             let permission_manager = Arc::new(crate::permissions::PermissionManager::new(
                 config.permissions.clone(),
             ));
-            let hook = crate::hooks::KazePermissionHook::new(permission_manager);
+            let hook = crate::hooks::KazeHook::new(permission_manager, project_root);
 
             let mut renderer = output::StdoutRenderer::new();
             let response = agent::agent_loop(

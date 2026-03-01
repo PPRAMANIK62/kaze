@@ -5,7 +5,7 @@
 //! send→tool→feedback iteration is handled entirely by rig-core; this module
 //! renders stream events and captures the final assistant text response.
 
-use crate::hooks::KazePermissionHook;
+use crate::hooks::KazeHook;
 use anyhow::Result;
 
 use crate::message::Message;
@@ -27,7 +27,7 @@ pub async fn agent_loop(
     tools: &ToolRegistry,
     renderer: &mut dyn Renderer,
     max_iterations: usize,
-    hook: KazePermissionHook,
+    hook: KazeHook,
 ) -> Result<String> {
     let response = provider
         .stream_with_tools(messages, tools, renderer, max_iterations, hook)

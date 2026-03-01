@@ -41,6 +41,7 @@ kaze is built on [rig-core](https://github.com/0xPlaygrounds/rig) for LLM abstra
 - Built-in tools: `read_file` (with path validation, size limits, binary detection), `glob` (pattern matching with project root containment), `grep` (regex content search with file filtering and match limits), `write_file` (full-file writes with parent directory creation and path validation), `edit` (search-and-replace editing with exact text matching and diff output), `bash` (shell command execution with timeout, output cap, and env variable filtering)
 - Agent loop: `kaze ask` autonomously calls tools (read, write, edit, grep, bash) in a multi-turn cycle via rig-core, executing tool calls and feeding results back until the LLM produces a final answer
 - Permission system: per-tool allow/ask/deny permissions via `[permissions]` in config, interactive prompts for sensitive tools (bash defaults to ask), session-level "always allow" option, wildcard matching for bash commands
+- Diff preview: colored unified diffs shown before file writes and edits (`similar` crate), with confirm/reject prompt when permission is set to "ask"
 
 ## Quick Start
 

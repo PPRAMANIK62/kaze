@@ -379,7 +379,7 @@ impl Provider {
         tools: &ToolRegistry,
         renderer: &mut dyn Renderer,
         max_turns: usize,
-        hook: crate::hooks::KazePermissionHook,
+        hook: crate::hooks::KazeHook,
     ) -> Result<String> {
         // Extract system prompt from history (first System message becomes preamble)
         let system_prompt = history

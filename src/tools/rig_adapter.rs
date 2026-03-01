@@ -59,12 +59,17 @@ impl ToolDyn for RigToolAdapter {
         Box::pin(async move {
             let input: serde_json::Value =
                 serde_json::from_str(&args).map_err(ToolError::JsonError)?;
-            let result = self
-                .tool
-                .execute(input)
-                .await
-                .map_err(|e| ToolError::ToolCallError(e.to_string().into()))?;
-            Ok(result.content)
+            match self.tool.execute(input).await {
+                Ok(result) => Ok(result.content),
+                Err(e) => {
+                    // Return tool errors as result strings instead of ToolError.
+                    // rig-core wraps ToolError through ToolSetError → ToolServerError,
+                    // causing triple-nested "ToolCallError: ToolCallError: ToolCallError:"
+                    // prefixes. Returning Ok("Error: ...") avoids this while still
+                    // letting the LLM see and react to the error.
+                    Ok(format!("Error: {}", e))
+                }
+            }
         })
     }
 }
