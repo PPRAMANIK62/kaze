@@ -38,7 +38,7 @@ kaze is built on [rig-core](https://github.com/0xPlaygrounds/rig) for LLM abstra
 - Context window awareness: per-model limits, warning at 80% usage, auto-truncation at 95%
 - Context compaction: LLM-based summarization of old messages (`/compact` or automatic at 90% usage)
 - Tool framework: `Tool` trait, `ToolRegistry` with JSON Schema definitions for LLM function calling
-- Built-in tools: `read_file` (with path validation, size limits, binary detection), `glob` (pattern matching with project root containment), `grep` (regex content search with file filtering and match limits), `write_file` (full-file writes with parent directory creation and path validation)
+- Built-in tools: `read_file` (with path validation, size limits, binary detection), `glob` (pattern matching with project root containment), `grep` (regex content search with file filtering and match limits), `write_file` (full-file writes with parent directory creation and path validation), `edit` (search-and-replace editing with exact text matching and diff output)
 
 ## Quick Start
 

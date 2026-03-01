@@ -4,14 +4,15 @@ use serde_json::json;
 #[tokio::test]
 async fn test_registry_with_builtins() {
     let registry = ToolRegistry::with_builtins(PathBuf::from("."));
-    assert_eq!(registry.len(), 4);
+    assert_eq!(registry.len(), 5);
     assert!(!registry.is_empty());
     let defs = registry.definitions();
-    assert_eq!(defs.len(), 4);
+    assert_eq!(defs.len(), 5);
     assert_eq!(defs[0].name, "read_file");
     assert_eq!(defs[1].name, "glob");
     assert_eq!(defs[2].name, "grep");
     assert_eq!(defs[3].name, "write_file");
+    assert_eq!(defs[4].name, "edit");
 }
 
 #[tokio::test]
@@ -160,6 +161,118 @@ async fn test_write_file_path_escape() {
         )
         .await;
     assert!(result.is_err());
+
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[tokio::test]
+async fn test_edit_basic() {
+    let dir = std::env::temp_dir().join(format!("kaze_test_edit_{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("file.txt"), "hello world").unwrap();
+
+    let registry = ToolRegistry::with_builtins(dir.clone());
+    let result = registry
+        .execute(
+            "edit",
+            json!({"path": "file.txt", "old_text": "hello", "new_text": "goodbye"}),
+        )
+        .await
+        .unwrap();
+    assert!(!result.is_error);
+    assert!(result.content.contains("Edited"));
+
+    let content = std::fs::read_to_string(dir.join("file.txt")).unwrap();
+    assert_eq!(content, "goodbye world");
+
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[tokio::test]
+async fn test_edit_replace_all() {
+    let dir = std::env::temp_dir().join(format!("kaze_test_edit_all_{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("repeat.txt"), "aaa bbb aaa bbb aaa").unwrap();
+
+    let registry = ToolRegistry::with_builtins(dir.clone());
+    let result = registry
+        .execute(
+            "edit",
+            json!({"path": "repeat.txt", "old_text": "aaa", "new_text": "ccc", "replace_all": true}),
+        )
+        .await
+        .unwrap();
+    assert!(!result.is_error);
+
+    let content = std::fs::read_to_string(dir.join("repeat.txt")).unwrap();
+    assert_eq!(content, "ccc bbb ccc bbb ccc");
+
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[tokio::test]
+async fn test_edit_text_not_found() {
+    let dir = std::env::temp_dir().join(format!("kaze_test_edit_nf_{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("file.txt"), "hello world").unwrap();
+
+    let registry = ToolRegistry::with_builtins(dir.clone());
+    let result = registry
+        .execute(
+            "edit",
+            json!({"path": "file.txt", "old_text": "nonexistent", "new_text": "replacement"}),
+        )
+        .await
+        .unwrap();
+    assert!(result.is_error);
+    assert!(result.content.contains("Text not found"));
+
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[tokio::test]
+async fn test_edit_path_escape() {
+    let dir = std::env::temp_dir().join(format!("kaze_test_edit_esc_{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+
+    let registry = ToolRegistry::with_builtins(dir.clone());
+    let result = registry
+        .execute(
+            "edit",
+            json!({"path": "../../../tmp/evil.txt", "old_text": "a", "new_text": "b"}),
+        )
+        .await;
+    assert!(result.is_err());
+
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[tokio::test]
+async fn test_edit_multiline() {
+    let dir = std::env::temp_dir().join(format!("kaze_test_edit_ml_{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(
+        dir.join("multi.txt"),
+        "line one\nline two\nline three\nline four\n",
+    )
+    .unwrap();
+
+    let registry = ToolRegistry::with_builtins(dir.clone());
+    let result = registry
+        .execute(
+            "edit",
+            json!({
+                "path": "multi.txt",
+                "old_text": "line two\nline three",
+                "new_text": "LINE 2\nLINE 3"
+            }),
+        )
+        .await
+        .unwrap();
+    assert!(!result.is_error);
+
+    let content = std::fs::read_to_string(dir.join("multi.txt")).unwrap();
+    assert_eq!(content, "line one\nLINE 2\nLINE 3\nline four\n");
 
     std::fs::remove_dir_all(&dir).unwrap();
 }

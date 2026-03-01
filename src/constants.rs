@@ -94,3 +94,6 @@ pub const GLOB_MAX_RESULTS: usize = 1000;
 
 /// Maximum number of matching lines the grep tool returns.
 pub const GREP_MAX_MATCHES: usize = 50;
+
+/// Number of context lines shown around diffs in the edit tool.
+pub const DIFF_CONTEXT_LINES: usize = 3;
