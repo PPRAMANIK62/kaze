@@ -10,10 +10,7 @@ use crate::message::Message;
 use crate::provider::Provider;
 use crate::tokens;
 
-/// System prompt sent to the LLM when requesting a conversation summary.
-const COMPACTION_PROMPT: &str = "Summarize the following conversation context concisely. \
-Preserve key decisions, code snippets, file paths, and technical details mentioned. \
-Do not add commentary. Return only the summary.\n\n";
+use crate::constants::COMPACTION_PROMPT;
 
 /// Result of a compaction attempt.
 pub enum CompactionResult {

@@ -8,6 +8,7 @@ use anyhow::Result;
 use tiktoken_rs::get_bpe_from_model;
 use std::collections::HashMap;
 use std::sync::LazyLock;
+use crate::constants::{CONTEXT_WARN_THRESHOLD, CONTEXT_DANGER_THRESHOLD, TOKENS_PER_MESSAGE_OVERHEAD, TOKENS_CONVERSATION_FRAMING};
 
 /// Count tokens for a text string using the appropriate tokenizer for the model.
 ///
@@ -31,10 +32,10 @@ pub fn count_conversation_tokens(
     });
     let mut total = 0;
     for (_role, content) in messages {
-        total += 4; // ~4 tokens overhead per message
+        total += TOKENS_PER_MESSAGE_OVERHEAD; // ~4 tokens overhead per message
         total += bpe.encode_ordinary(content).len();
     }
-    total += 2; // conversation framing
+    total += TOKENS_CONVERSATION_FRAMING; // conversation framing
     Ok(total)
 }
 
@@ -72,11 +73,9 @@ pub fn context_window_size(model: &str) -> usize {
     CONTEXT_WINDOWS
         .get(model)
         .copied()
-        .unwrap_or(crate::models::DEFAULT_CONTEXT_WINDOW)
+        .unwrap_or(crate::constants::DEFAULT_CONTEXT_WINDOW)
 }
 
-pub const WARN_THRESHOLD: f64 = 0.80;
-pub const DANGER_THRESHOLD: f64 = 0.95;
 
 pub enum ContextStatus {
     Ok { used: usize, limit: usize },
@@ -88,9 +87,9 @@ pub fn check_context_usage(used: usize, model: &str) -> ContextStatus {
     let limit = context_window_size(model);
     let ratio = used as f64 / limit as f64;
     let percent = (ratio * 100.0) as u8;
-    if ratio >= DANGER_THRESHOLD {
+    if ratio >= CONTEXT_DANGER_THRESHOLD {
         ContextStatus::Critical { used, limit, percent }
-    } else if ratio >= WARN_THRESHOLD {
+    } else if ratio >= CONTEXT_WARN_THRESHOLD {
         ContextStatus::Warning { used, limit, percent }
     } else {
         ContextStatus::Ok { used, limit }

@@ -98,5 +98,3 @@ pub const OLLAMA_MODELS: &[ModelInfo] = &[
     },
 ];
 
-/// Default context window for models not in the registry.
-pub const DEFAULT_CONTEXT_WINDOW: usize = 8_192;

@@ -5,8 +5,7 @@ use std::path::PathBuf;
 
 use super::{Tool, ToolResult};
 
-/// Maximum number of results to return.
-const MAX_RESULTS: usize = 1000;
+use crate::constants::GLOB_MAX_RESULTS;
 
 pub struct GlobTool {
     project_root: PathBuf,
@@ -53,8 +52,8 @@ impl Tool for GlobTool {
 
         let mut paths: Vec<String> = Vec::new();
         for entry in glob::glob(&pattern_str)? {
-            if paths.len() >= MAX_RESULTS {
-                paths.push(format!("... truncated at {} results", MAX_RESULTS));
+            if paths.len() >= GLOB_MAX_RESULTS {
+                paths.push(format!("... truncated at {} results", GLOB_MAX_RESULTS));
                 break;
             }
             let entry = entry?;

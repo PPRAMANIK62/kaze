@@ -5,8 +5,7 @@ use std::path::{Path, PathBuf};
 
 use super::{Tool, ToolResult};
 
-/// Maximum file size to read (default 100KB).
-const MAX_READ_SIZE: u64 = 100 * 1024;
+use crate::constants::{READ_FILE_MAX_SIZE, BINARY_DETECTION_BYTES};
 
 pub struct ReadFileTool {
     /// Project root directory. Paths are resolved relative to this.
@@ -65,17 +64,17 @@ impl Tool for ReadFileTool {
         let path = self.resolve_path(&input.path)?;
 
         let metadata = std::fs::metadata(&path)?;
-        if metadata.len() > MAX_READ_SIZE {
+        if metadata.len() > READ_FILE_MAX_SIZE {
             return Ok(ToolResult::error(format!(
                 "File too large: {} bytes (max {})",
                 metadata.len(),
-                MAX_READ_SIZE
+                READ_FILE_MAX_SIZE
             )));
         }
 
         let content = std::fs::read(&path)?;
         // Check for binary content (null bytes in first 8KB)
-        let check_len = content.len().min(8192);
+        let check_len = content.len().min(BINARY_DETECTION_BYTES);
         if content[..check_len].contains(&0) {
             return Ok(ToolResult::error(
                 "Binary file detected. Cannot display binary content.".into(),

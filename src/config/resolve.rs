@@ -2,6 +2,8 @@
 
 use super::types::{Config, ProviderEntry};
 
+use crate::constants::{COMPACTION_AUTO_DEFAULT, COMPACTION_THRESHOLD_DEFAULT, COMPACTION_KEEP_RECENT_DEFAULT, COMPACTION_RESERVED_DEFAULT};
+
 impl Config {
     /// Resolve {env:VAR_NAME} patterns in string fields.
     pub(super) fn resolve_substitutions(&mut self) {
@@ -93,21 +95,21 @@ impl Config {
 
     /// Whether automatic context compaction is enabled.
     pub fn compaction_auto_enabled(&self) -> bool {
-        self.compaction.auto.unwrap_or(true)
+        self.compaction.auto.unwrap_or(COMPACTION_AUTO_DEFAULT)
     }
 
     /// Usage ratio at which auto-compaction triggers.
     pub fn compaction_threshold(&self) -> f64 {
-        self.compaction.auto_threshold.unwrap_or(0.90)
+        self.compaction.auto_threshold.unwrap_or(COMPACTION_THRESHOLD_DEFAULT)
     }
 
     /// Number of recent messages to keep during compaction.
     pub fn compaction_keep_recent(&self) -> usize {
-        self.compaction.keep_recent.unwrap_or(4)
+        self.compaction.keep_recent.unwrap_or(COMPACTION_KEEP_RECENT_DEFAULT)
     }
 
     /// Reserved token budget for the compaction summary.
     pub fn compaction_reserved(&self) -> usize {
-        self.compaction.reserved.unwrap_or(10_000)
+        self.compaction.reserved.unwrap_or(COMPACTION_RESERVED_DEFAULT)
     }
 }

@@ -8,8 +8,7 @@ use anyhow::Result;
 use super::kind::{default_model_for, ProviderKind};
 use crate::config::Config;
 
-/// Default provider name when nothing is configured.
-const DEFAULT_PROVIDER: &str = "anthropic";
+use crate::constants::DEFAULT_PROVIDER;
 
 /// Resolved provider + model pair.
 pub struct ModelSelection {
