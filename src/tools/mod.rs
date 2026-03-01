@@ -1,5 +1,6 @@
 pub mod read_file;
 pub mod glob_tool;
+pub mod grep_tool;
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
@@ -8,6 +9,7 @@ use std::path::PathBuf;
 
 use read_file::ReadFileTool;
 use glob_tool::GlobTool;
+use grep_tool::GrepTool;
 
 /// The result of executing a tool.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -113,7 +115,8 @@ impl ToolRegistry {
     pub fn with_builtins(project_root: PathBuf) -> Self {
         let mut registry = Self::new();
         registry.register(Box::new(ReadFileTool::new(project_root.clone())));
-        registry.register(Box::new(GlobTool::new(project_root)));
+        registry.register(Box::new(GlobTool::new(project_root.clone())));
+        registry.register(Box::new(GrepTool::new(project_root)));
         registry
     }
 }

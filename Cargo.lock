@@ -1020,6 +1020,7 @@ dependencies = [
  "dotenvy",
  "futures",
  "glob",
+ "regex",
  "reqwest",
  "rig-core",
  "rustyline",
