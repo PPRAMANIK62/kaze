@@ -123,6 +123,22 @@ impl Session {
         Ok(())
     }
 
+    /// Appends an arbitrary JSON event to the session JSONL file.
+    ///
+    /// Used for recording non-message events like compaction markers
+    /// without adding them to the in-memory message list.
+    pub fn append_event(&mut self, event: &serde_json::Value) -> Result<()> {
+        let mut file = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&self.file_path)
+            .with_context(|| format!("Failed to open session file {:?}", self.file_path))?;
+        let json = serde_json::to_string(event)?;
+        writeln!(file, "{}", json)?;
+        file.flush()?;
+        Ok(())
+    }
+
     /// Returns the session title derived from the first user message.
     ///
     /// Truncates to 50 characters. Returns `None` if no user message exists.

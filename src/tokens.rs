@@ -43,7 +43,7 @@ pub fn format_token_usage(used: usize, limit: usize) -> String {
     format!("{} / {}", format_number(used), format_number(limit))
 }
 
-fn format_number(n: usize) -> String {
+pub fn format_number(n: usize) -> String {
     let s = n.to_string();
     let mut result = String::new();
     for (i, c) in s.chars().rev().enumerate() {

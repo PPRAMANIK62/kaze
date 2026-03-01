@@ -27,7 +27,7 @@ kaze is built on [rig-core](https://github.com/0xPlaygrounds/rig) for LLM abstra
 - Per-project config override (`kaze.toml` in project root)
 - Environment variable resolution (`{env:VAR}` syntax)
 - Persistent readline history across sessions
-- Slash commands in chat: `/history`, `/clear`, `/help`
+- Slash commands in chat: `/history`, `/clear`, `/compact`, `/help`
 - Markdown-lite formatting for assistant responses (bold, inline code, fenced code blocks)
 - Default system prompt (configurable via `system_prompt` in config)
 - Session persistence: conversations saved as JSONL files, survive restarts
@@ -36,6 +36,7 @@ kaze is built on [rig-core](https://github.com/0xPlaygrounds/rig) for LLM abstra
 - `--model` flag to override model, supports `provider/model` shorthand (e.g., `openai/gpt-4.1`)
 - Token counting with BPE tokenization (tiktoken-rs) — displays usage after each response
 - Context window awareness: per-model limits, warning at 80% usage, auto-truncation at 95%
+- Context compaction: LLM-based summarization of old messages (`/compact` or automatic at 90% usage)
 
 ## Quick Start
 
@@ -114,6 +115,11 @@ api_key = "{env:OPENROUTER_API_KEY}"
 
 [provider.ollama]
 base_url = "http://localhost:11434"
+
+[compaction]
+auto = true
+keep_recent = 4
+reserved = 10000
 ```
 
 ## Roadmap
@@ -126,7 +132,7 @@ kaze is being built incrementally in 34 steps across 8 phases.
 | 1 | Core (ask, streaming, config) | Done |
 | 2 | Multi-turn chat + sessions | Done |
 | 3 | Multi-provider (OpenAI, OpenRouter, Ollama) | Done |
-| 4 | Context management (token counting, compaction) | In Progress |
+| 4 | Context management (token counting, compaction) | Done |
 | 5 | Tools (read, write, edit, grep, bash) | Planned |
 | 6 | Agent loop | Planned |
 | 7 | TUI (ratatui) | Planned |

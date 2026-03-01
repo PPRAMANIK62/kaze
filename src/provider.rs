@@ -11,6 +11,7 @@ use rig::client::CompletionClient;
 use rig::message::{Message as RigMessage, Text};
 use rig::providers::{anthropic, openai, openrouter};
 use rig::streaming::{StreamedAssistantContent, StreamingChat, StreamingPrompt};
+use rig::completion::Prompt;
 
 use crate::config::Config;
 use crate::output::Renderer;
@@ -345,6 +346,19 @@ impl Provider {
 
         renderer.render_done();
         Ok(full_response)
+    }
+
+    /// Sends a non-streaming prompt to the LLM and returns the full response.
+    ///
+    /// Used for internal tasks like context compaction where streaming
+    /// output is not needed.
+    pub async fn prompt(&self, prompt_text: &str) -> Result<String> {
+        dispatch!(self, |client| {
+            let response = with_agent!(client, &self.model, None::<&str>, |agent| {
+                agent.prompt(prompt_text).await
+            });
+            Ok(response?)
+        })
     }
 }
 

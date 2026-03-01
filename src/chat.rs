@@ -17,6 +17,7 @@ use crate::provider::{Provider, ModelSelection};
 use crate::format;
 use crate::session::Session;
 use crate::tokens::ContextStatus;
+use crate::compaction::{self, CompactionResult};
 
 /// Runs the interactive chat REPL.
 ///
@@ -118,8 +119,52 @@ pub async fn run_chat(config: Config, session_id: Option<String>, selection: &Mo
                             println!("{}", "Commands:".bold());
                             println!("  {} - show conversation history", "/history".cyan());
                             println!("  {} - clear conversation", "/clear".cyan());
+                            println!("  {} - summarize old context to free tokens", "/compact".cyan());
                             println!("  {} - show this help", "/help".cyan());
                             println!("  {} - exit", "Ctrl+D".cyan());
+                            continue;
+                        }
+                        "/compact" => {
+                            match compaction::compact(
+                                &mut session.messages,
+                                &provider,
+                                &model_name,
+                                config.compaction_keep_recent(),
+                            )
+                            .await
+                            {
+                                Ok(CompactionResult::NothingToCompact) => {
+                                    eprintln!("{}", "Nothing to compact.".dimmed());
+                                }
+                                Ok(CompactionResult::Compacted {
+                                    messages_removed,
+                                    tokens_before,
+                                    tokens_after,
+                                }) => {
+                                    let saved = tokens_before.saturating_sub(tokens_after);
+                                    eprintln!(
+                                        "{}",
+                                        format!(
+                                            "Compacted {} messages ({} → {} tokens, saved {})",
+                                            messages_removed,
+                                            crate::tokens::format_number(tokens_before),
+                                            crate::tokens::format_number(tokens_after),
+                                            crate::tokens::format_number(saved),
+                                        )
+                                        .dimmed()
+                                    );
+                                    // Record compaction event in session JSONL
+                                    let _ = session.append_event(&serde_json::json!({
+                                        "event": "compaction",
+                                        "messages_removed": messages_removed,
+                                        "tokens_before": tokens_before,
+                                        "tokens_after": tokens_after,
+                                    }));
+                                }
+                                Err(e) => {
+                                    eprintln!("{} compaction failed: {}", "error:".red().bold(), e);
+                                }
+                            }
                             continue;
                         }
                         _ => {
@@ -157,6 +202,7 @@ pub async fn run_chat(config: Config, session_id: Option<String>, selection: &Mo
                         let token_count = crate::tokens::count_conversation_tokens(&msg_pairs, &model_name)?;
                         let status = crate::tokens::check_context_usage(token_count, &model_name);
 
+                        let mut already_compacted = false;
                         match status {
                             ContextStatus::Ok { used, limit } => {
                                 println!(
@@ -183,7 +229,99 @@ pub async fn run_chat(config: Config, session_id: Option<String>, selection: &Mo
                                         percent,
                                     ).red()
                                 );
-                                truncate_oldest_messages(&mut session.messages, &model_name);
+                                match compaction::compact(
+                                    &mut session.messages,
+                                    &provider,
+                                    &model_name,
+                                    config.compaction_keep_recent(),
+                                )
+                                .await
+                                {
+                                    Ok(CompactionResult::Compacted {
+                                        messages_removed,
+                                        tokens_before,
+                                        tokens_after,
+                                    }) => {
+                                        let saved = tokens_before.saturating_sub(tokens_after);
+                                        eprintln!(
+                                            "{}",
+                                            format!(
+                                                "Compacted {} messages ({} → {} tokens, saved {})",
+                                                messages_removed,
+                                                crate::tokens::format_number(tokens_before),
+                                                crate::tokens::format_number(tokens_after),
+                                                crate::tokens::format_number(saved),
+                                            )
+                                            .dimmed()
+                                        );
+                                        let _ = session.append_event(&serde_json::json!({
+                                            "event": "compaction",
+                                            "messages_removed": messages_removed,
+                                            "tokens_before": tokens_before,
+                                            "tokens_after": tokens_after,
+                                        }));
+                                        already_compacted = true;
+                                    }
+                                    Ok(CompactionResult::NothingToCompact) => {
+                                        // Fallback to truncation if compaction has nothing to do
+                                        truncate_oldest_messages(&mut session.messages, &model_name);
+                                    }
+                                    Err(_) => {
+                                        // Fallback to truncation if compaction fails
+                                        truncate_oldest_messages(&mut session.messages, &model_name);
+                                    }
+                                }
+                            }
+                        }
+
+                        // Auto-compaction: trigger when usage exceeds threshold
+                        if !already_compacted && config.compaction_auto_enabled() {
+                            let limit = crate::tokens::context_window_size(&model_name);
+                            let reserved = config.compaction_reserved();
+                            let effective_limit = limit.saturating_sub(reserved);
+                            let ratio = token_count as f64 / effective_limit.max(1) as f64;
+                            if ratio >= config.compaction_threshold() {
+                                match compaction::compact(
+                                    &mut session.messages,
+                                    &provider,
+                                    &model_name,
+                                    config.compaction_keep_recent(),
+                                )
+                                .await
+                                {
+                                    Ok(CompactionResult::Compacted {
+                                        messages_removed,
+                                        tokens_before,
+                                        tokens_after,
+                                    }) => {
+                                        let saved = tokens_before.saturating_sub(tokens_after);
+                                        eprintln!(
+                                            "{}",
+                                            format!(
+                                                "Auto-compacted {} messages ({} → {} tokens, saved {})",
+                                                messages_removed,
+                                                crate::tokens::format_number(tokens_before),
+                                                crate::tokens::format_number(tokens_after),
+                                                crate::tokens::format_number(saved),
+                                            )
+                                            .dimmed()
+                                        );
+                                        let _ = session.append_event(&serde_json::json!({
+                                            "event": "auto_compaction",
+                                            "messages_removed": messages_removed,
+                                            "tokens_before": tokens_before,
+                                            "tokens_after": tokens_after,
+                                        }));
+                                    }
+                                    Ok(CompactionResult::NothingToCompact) => {}
+                                    Err(e) => {
+                                        eprintln!(
+                                            "{} auto-compaction failed: {}",
+                                            "warning:".yellow().bold(),
+                                            e
+                                        );
+                                    }
+                                }
                             }
                         }
                     }

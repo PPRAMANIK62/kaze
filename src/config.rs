@@ -27,6 +27,9 @@ pub struct Config {
     /// Optional system prompt prepended to all conversations.
     #[serde(default = "default_system_prompt")]
     pub system_prompt: Option<String>,
+    /// Context compaction settings.
+    #[serde(default)]
+    pub compaction: CompactionConfig,
 }
 
 /// Returns the default model identifier (`"claude-sonnet-4-5"`).
@@ -74,6 +77,33 @@ pub struct ProviderEntry {
     pub model: Option<String>,
 }
 
+/// Configuration for LLM-based context compaction.
+///
+/// Controls when and how kaze summarizes old conversation messages
+/// to free up context window space.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct CompactionConfig {
+    /// Threshold ratio (0.0–1.0) at which auto-compaction triggers.
+    pub auto_threshold: Option<f64>,
+    /// Whether automatic compaction is enabled.
+    pub auto: Option<bool>,
+    /// Number of most-recent messages to preserve during compaction.
+    pub keep_recent: Option<usize>,
+    /// Reserved token budget for the compaction summary itself.
+    pub reserved: Option<usize>,
+}
+
+impl Default for CompactionConfig {
+    fn default() -> Self {
+        Self {
+            auto_threshold: None,
+            auto: None,
+            keep_recent: None,
+            reserved: None,
+        }
+    }
+}
+
 
 impl Default for Config {
     fn default() -> Self {
@@ -82,6 +112,7 @@ impl Default for Config {
             provider: ProviderConfig::default(),
             system_prompt: default_system_prompt(),
             default_provider: None,
+            compaction: CompactionConfig::default(),
         }
     }
 }
@@ -175,6 +206,12 @@ base_url = "http://localhost:11434"
             provider: global.provider, // TODO: deep merge providers
             system_prompt: project.system_prompt.or(global.system_prompt),
             default_provider: project.default_provider.or(global.default_provider),
+            compaction: CompactionConfig {
+                auto_threshold: project.compaction.auto_threshold.or(global.compaction.auto_threshold),
+                auto: project.compaction.auto.or(global.compaction.auto),
+                keep_recent: project.compaction.keep_recent.or(global.compaction.keep_recent),
+                reserved: project.compaction.reserved.or(global.compaction.reserved),
+            },
         }
     }
 
@@ -263,6 +300,26 @@ base_url = "http://localhost:11434"
         } else {
             Some(m.to_string())
         }
+    }
+
+    /// Whether automatic context compaction is enabled.
+    pub fn compaction_auto_enabled(&self) -> bool {
+        self.compaction.auto.unwrap_or(true)
+    }
+
+    /// Usage ratio at which auto-compaction triggers.
+    pub fn compaction_threshold(&self) -> f64 {
+        self.compaction.auto_threshold.unwrap_or(0.90)
+    }
+
+    /// Number of recent messages to keep during compaction.
+    pub fn compaction_keep_recent(&self) -> usize {
+        self.compaction.keep_recent.unwrap_or(4)
+    }
+
+    /// Reserved token budget for the compaction summary.
+    pub fn compaction_reserved(&self) -> usize {
+        self.compaction.reserved.unwrap_or(10_000)
     }
 
     /// Returns the platform-specific configuration directory for kaze.

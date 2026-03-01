@@ -14,6 +14,7 @@ mod output;
 mod provider;
 mod session;
 mod tokens;
+mod compaction;
 
 use anyhow::Result;
 
