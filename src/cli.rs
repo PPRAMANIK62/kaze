@@ -48,6 +48,8 @@ pub enum Commands {
         #[arg(short, long)]
         model: Option<String>,
     },
+    /// List available models
+    Models,
     /// Manage configuration
     Config {
         #[command(subcommand)]
@@ -138,6 +140,10 @@ pub async fn run(cli: Cli) -> Result<()> {
             )?;
             config.model = selection.model.clone();
             chat::run_chat(config, session, &selection).await
+        }
+        Commands::Models => {
+            let config = config::Config::load()?;
+            crate::provider::list_models(&config).await
         }
         Commands::Config { action } => {
             let config = config::Config::load()?;

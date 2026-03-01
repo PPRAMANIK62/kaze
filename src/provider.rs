@@ -4,20 +4,40 @@
 //! dispatch, keeping provider-specific details out of the CLI layer. Supports
 //! Anthropic, OpenAI, OpenRouter, and Ollama (local) via [`ProviderKind`].
 
-use anyhow::{Context, Result, anyhow};
+use anyhow::{anyhow, Context, Result};
 use futures::StreamExt;
 use rig::agent::MultiTurnStreamItem;
 use rig::client::CompletionClient;
 use rig::completion::Prompt;
 use rig::message::{Message as RigMessage, Text};
 use rig::providers::{anthropic, openai, openrouter};
-use rig::streaming::{StreamingChat, StreamingPrompt, StreamedAssistantContent};
+use rig::streaming::{StreamedAssistantContent, StreamingChat, StreamingPrompt};
 
 use crate::config::Config;
 use crate::output::Renderer;
 
 /// Default provider name when nothing is configured.
 const DEFAULT_PROVIDER: &str = "anthropic";
+
+/// Known models for cloud providers (updated with kaze releases).
+const ANTHROPIC_MODELS: &[&str] = &[
+    "claude-opus-4-6",
+    "claude-sonnet-4-6",
+    "claude-haiku-4-5",
+    "claude-sonnet-4-5",
+    "claude-opus-4",
+];
+
+const OPENAI_MODELS: &[&str] = &[
+    "gpt-5.2",
+    "gpt-5-mini",
+    "gpt-5-nano",
+    "gpt-4.1",
+    "gpt-4.1-mini",
+    "gpt-4.1-nano",
+    "o3",
+    "o4-mini",
+];
 
 /// Resolved provider + model pair.
 pub struct ModelSelection {
@@ -48,7 +68,9 @@ impl ProviderKind {
             "openai" => Ok(Self::OpenAI),
             "openrouter" => Ok(Self::OpenRouter),
             "ollama" => Ok(Self::Ollama),
-            other => Err(anyhow!("Unknown provider: {other}. Supported: anthropic, openai, openrouter, ollama")),
+            other => Err(anyhow!(
+                "Unknown provider: {other}. Supported: anthropic, openai, openrouter, ollama"
+            )),
         }
     }
 }
@@ -149,10 +171,10 @@ macro_rules! with_agent {
 macro_rules! dispatch {
     ($self:expr, |$client:ident| $body:expr) => {
         match &$self.client {
-            ClientKind::Anthropic($client) => { $body }
-            ClientKind::OpenAI($client) => { $body }
-            ClientKind::OpenRouter($client) => { $body }
-            ClientKind::Ollama($client) => { $body }
+            ClientKind::Anthropic($client) => $body,
+            ClientKind::OpenAI($client) => $body,
+            ClientKind::OpenRouter($client) => $body,
+            ClientKind::Ollama($client) => $body,
         }
     };
 }
@@ -165,9 +187,9 @@ macro_rules! process_stream {
     ($stream:expr, $renderer:expr, $full_response:expr) => {
         while let Some(chunk) = $stream.next().await {
             match chunk {
-                Ok(MultiTurnStreamItem::StreamAssistantItem(
-                    StreamedAssistantContent::Text(Text { text }),
-                )) => {
+                Ok(MultiTurnStreamItem::StreamAssistantItem(StreamedAssistantContent::Text(
+                    Text { text },
+                ))) => {
                     $renderer.render_token(&text);
                     $full_response.push_str(&text);
                 }
@@ -214,8 +236,8 @@ impl Provider {
                 let api_key = config
                     .resolve_api_key("openai")
                     .context("No API key found for OpenAI. Set OPENAI_API_KEY or configure it in config.toml")?;
-                let client = openai::Client::new(&api_key)
-                    .context("Failed to create OpenAI client")?;
+                let client =
+                    openai::Client::new(&api_key).context("Failed to create OpenAI client")?;
                 Ok(Self {
                     client: ClientKind::OpenAI(client),
                     model: selection.model.clone(),
@@ -225,14 +247,18 @@ impl Provider {
                 let api_key = config
                     .resolve_api_key("openrouter")
                     .context("No API key found for OpenRouter. Set OPENROUTER_API_KEY or configure it in config.toml")?;
-                let client = openrouter::Client::new(&api_key).context("Failed to create OpenRouter client")?;
+                let client = openrouter::Client::new(&api_key)
+                    .context("Failed to create OpenRouter client")?;
                 Ok(Self {
                     client: ClientKind::OpenRouter(client),
                     model: selection.model.clone(),
                 })
             }
             ProviderKind::Ollama => {
-                let base_url = config.provider.ollama.as_ref()
+                let base_url = config
+                    .provider
+                    .ollama
+                    .as_ref()
                     .and_then(|o| o.base_url.as_deref())
                     .unwrap_or(crate::constants::OLLAMA_DEFAULT_BASE_URL);
                 let client = openai::Client::builder()
@@ -324,17 +350,20 @@ impl Provider {
         renderer: &mut dyn Renderer,
     ) -> Result<String> {
         // Extract system prompt from history (first System message becomes preamble)
-        let system_prompt = history.iter()
+        let system_prompt = history
+            .iter()
             .find(|m| m.role == crate::message::Role::System)
             .map(|m| m.text());
 
         // Last message is the user's prompt
-        let prompt_text = history.last()
+        let prompt_text = history
+            .last()
             .map(|m| m.text().to_string())
             .unwrap_or_default();
 
         // Convert history to rig messages (skip system msgs and the last user msg)
-        let chat_history: Vec<RigMessage> = history.iter()
+        let chat_history: Vec<RigMessage> = history
+            .iter()
             .take(history.len().saturating_sub(1))
             .filter(|m| m.role != crate::message::Role::System)
             .map(|m| match m.role {
@@ -348,7 +377,9 @@ impl Provider {
 
         dispatch!(self, |client| {
             let mut stream = with_agent!(client, &self.model, system_prompt, |agent| {
-                agent.stream_chat(prompt_text.clone(), chat_history.clone()).await
+                agent
+                    .stream_chat(prompt_text.clone(), chat_history.clone())
+                    .await
             });
             process_stream!(stream, renderer, full_response);
         });
@@ -356,4 +387,70 @@ impl Provider {
         renderer.render_done();
         Ok(full_response)
     }
+}
+
+/// List all available models, grouped by provider.
+pub async fn list_models(config: &Config) -> Result<()> {
+    let selection = resolve_model(None, None, config)?;
+    let current = &selection.model;
+
+    println!("Available models:\n");
+
+    // Anthropic
+    println!("  anthropic:");
+    for model in ANTHROPIC_MODELS {
+        let marker = if *model == current { " (default)" } else { "" };
+        println!("    {model}{marker}");
+    }
+
+    // OpenAI
+    println!("\n  openai:");
+    for model in OPENAI_MODELS {
+        let marker = if *model == current { " (default)" } else { "" };
+        println!("    {model}{marker}");
+    }
+
+    // Ollama (dynamic)
+    println!("\n  ollama:");
+    match list_ollama_models(config).await {
+        Ok(models) if models.is_empty() => {
+            println!("    (no models found -- run `ollama pull llama3`)");
+        }
+        Ok(models) => {
+            for model in &models {
+                let marker = if model == current { " (default)" } else { "" };
+                println!("    {model}{marker}");
+            }
+        }
+        Err(_) => {
+            println!("    (ollama not running)");
+        }
+    }
+
+    Ok(())
+}
+
+/// Query Ollama's local API for available models.
+async fn list_ollama_models(config: &Config) -> Result<Vec<String>> {
+    let base_url = config
+        .provider
+        .ollama
+        .as_ref()
+        .and_then(|o| o.base_url.as_deref())
+        .unwrap_or(crate::constants::OLLAMA_DEFAULT_BASE_URL);
+
+    let url = format!("{base_url}/api/tags");
+
+    let resp: serde_json::Value = reqwest::get(&url).await?.json().await?;
+
+    let models = resp["models"]
+        .as_array()
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|m| m["name"].as_str().map(String::from))
+                .collect()
+        })
+        .unwrap_or_default();
+
+    Ok(models)
 }

@@ -7,7 +7,7 @@
 pub const APP_NAME: &str = "kaze";
 
 /// Default LLM model identifier.
-pub const DEFAULT_MODEL: &str = "claude-sonnet-4-5";
+pub const DEFAULT_MODEL: &str = "claude-sonnet-4-6";
 
 /// Maximum tokens for LLM completions.
 pub const MAX_TOKENS: u64 = 4096;
@@ -27,7 +27,7 @@ pub const PROJECT_CONFIG_FILENAME: &str = "kaze.toml";
 pub const HISTORY_FILENAME: &str = "chat_history.txt";
 
 /// Default LLM model identifier for OpenAI.
-pub const DEFAULT_OPENAI_MODEL: &str = "gpt-4o";
+pub const DEFAULT_OPENAI_MODEL: &str = "gpt-4.1";
 
 /// Default LLM model identifier for OpenRouter.
 pub const DEFAULT_OPENROUTER_MODEL: &str = "arcee-ai/trinity-large-preview:free";

@@ -955,6 +955,7 @@ dependencies = [
  "dirs",
  "dotenvy",
  "futures",
+ "reqwest",
  "rig-core",
  "rustyline",
  "serde",

@@ -21,6 +21,7 @@ kaze is built on [rig-core](https://github.com/0xPlaygrounds/rig) for LLM abstra
 - `kaze session new` ... start a new session (alias for `kaze chat`)
 - Partial session ID matching (git-style short IDs)
 - `kaze config show` ... view current configuration
+- `kaze models` ... list available models per provider with default marker
 - Streaming token-by-token output
 - TOML configuration with XDG paths (`~/.config/kaze/config.toml`)
 - Per-project config override (`kaze.toml` in project root)
@@ -32,7 +33,7 @@ kaze is built on [rig-core](https://github.com/0xPlaygrounds/rig) for LLM abstra
 - Session persistence: conversations saved as JSONL files, survive restarts
 - Multi-provider support: Anthropic (default), OpenAI, OpenRouter, Ollama (local)
 - `--provider` flag on `ask` and `chat` commands (anthropic, openai, openrouter, ollama)
-- `--model` flag to override model, supports `provider/model` shorthand (e.g., `openai/gpt-4o`)
+- `--model` flag to override model, supports `provider/model` shorthand (e.g., `openai/gpt-4.1`)
 
 ## Quick Start
 
@@ -61,10 +62,10 @@ kaze ask --provider openrouter "explain ownership in rust"
 kaze ask --provider ollama "explain ownership in rust"
 
 # Override the model
-kaze ask --provider openrouter --model "anthropic/claude-3.5-sonnet" "hello"
+kaze ask --provider openrouter --model "anthropic/claude-sonnet-4-6" "hello"
 
 # Use provider/model shorthand (combines --provider and --model in one flag)
-kaze ask --model openai/gpt-4o "hello"
+kaze ask --model openai/gpt-4.1 "hello"
 kaze ask --model ollama/llama3 "hello"
 
 # Interactive chat (creates a new session automatically)
@@ -84,6 +85,9 @@ kaze session resume abc12345
 
 # Delete a session
 kaze session delete abc12345
+
+# List available models
+kaze models
 ```
 
 ## Configuration
@@ -91,9 +95,9 @@ kaze session delete abc12345
 Global config lives at `~/.config/kaze/config.toml`. Drop a `kaze.toml` in your project root to override it per-project.
 
 ```toml
-model = "claude-sonnet-4-5"
+model = "claude-sonnet-4-6"
 # Or use provider/model shorthand:
-# model = "openai/gpt-4o"
+# model = "openai/gpt-4.1"
 # default_provider = "anthropic"
 system_prompt = "You are a senior Rust developer. Be concise and precise."
 
