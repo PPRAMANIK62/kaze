@@ -1,3 +1,4 @@
+pub mod bash_tool;
 pub mod edit_tool;
 pub mod glob_tool;
 pub mod grep_tool;
@@ -9,6 +10,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::path::PathBuf;
 
+use bash_tool::BashTool;
 use edit_tool::EditTool;
 use glob_tool::GlobTool;
 use grep_tool::GrepTool;
@@ -128,7 +130,8 @@ impl ToolRegistry {
         registry.register(Box::new(GlobTool::new(project_root.clone())));
         registry.register(Box::new(GrepTool::new(project_root.clone())));
         registry.register(Box::new(WriteFileTool::new(project_root.clone())));
-        registry.register(Box::new(EditTool::new(project_root)));
+        registry.register(Box::new(EditTool::new(project_root.clone())));
+        registry.register(Box::new(BashTool::new(project_root)));
         registry
     }
 }

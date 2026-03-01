@@ -4,15 +4,16 @@ use serde_json::json;
 #[tokio::test]
 async fn test_registry_with_builtins() {
     let registry = ToolRegistry::with_builtins(PathBuf::from("."));
-    assert_eq!(registry.len(), 5);
+    assert_eq!(registry.len(), 6);
     assert!(!registry.is_empty());
     let defs = registry.definitions();
-    assert_eq!(defs.len(), 5);
+    assert_eq!(defs.len(), 6);
     assert_eq!(defs[0].name, "read_file");
     assert_eq!(defs[1].name, "glob");
     assert_eq!(defs[2].name, "grep");
     assert_eq!(defs[3].name, "write_file");
     assert_eq!(defs[4].name, "edit");
+    assert_eq!(defs[5].name, "bash");
 }
 
 #[tokio::test]
@@ -275,4 +276,48 @@ async fn test_edit_multiline() {
     assert_eq!(content, "line one\nLINE 2\nLINE 3\nline four\n");
 
     std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[tokio::test]
+async fn test_bash_echo() {
+    let registry = ToolRegistry::with_builtins(PathBuf::from("."));
+    let result = registry
+        .execute("bash", json!({"command": "echo hello"}))
+        .await
+        .unwrap();
+    assert!(!result.is_error);
+    assert!(result.content.contains("hello"));
+}
+
+#[tokio::test]
+async fn test_bash_exit_code() {
+    let registry = ToolRegistry::with_builtins(PathBuf::from("."));
+    let result = registry
+        .execute("bash", json!({"command": "exit 42"}))
+        .await
+        .unwrap();
+    assert!(result.is_error);
+    assert!(result.content.contains("Exit code"));
+    assert!(result.content.contains("42"));
+}
+
+#[tokio::test]
+async fn test_bash_timeout() {
+    let registry = ToolRegistry::with_builtins(PathBuf::from("."));
+    let result = registry
+        .execute("bash", json!({"command": "sleep 10", "timeout": 1}))
+        .await
+        .unwrap();
+    assert!(result.is_error);
+    assert!(result.content.contains("timed out"));
+}
+
+#[tokio::test]
+async fn test_bash_stderr() {
+    let registry = ToolRegistry::with_builtins(PathBuf::from("."));
+    let result = registry
+        .execute("bash", json!({"command": "echo err >&2"}))
+        .await
+        .unwrap();
+    assert!(result.content.contains("--- stderr ---"));
 }

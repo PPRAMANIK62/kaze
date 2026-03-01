@@ -97,3 +97,21 @@ pub const GREP_MAX_MATCHES: usize = 50;
 
 /// Number of context lines shown around diffs in the edit tool.
 pub const DIFF_CONTEXT_LINES: usize = 3;
+
+// --- Bash tool ---
+
+/// Default timeout (seconds) for bash command execution.
+pub const BASH_DEFAULT_TIMEOUT_SECS: u64 = 30;
+
+/// Maximum combined stdout+stderr size (bytes) the bash tool will return.
+pub const BASH_MAX_OUTPUT_SIZE: usize = 1024 * 1024;
+
+/// Environment variables stripped from child processes for safety.
+pub const BASH_STRIPPED_ENV_VARS: &[&str] = &[
+    "ANTHROPIC_API_KEY",
+    "OPENAI_API_KEY",
+    "GOOGLE_API_KEY",
+    "AWS_SECRET_ACCESS_KEY",
+    "GITHUB_TOKEN",
+    "OPENROUTER_API_KEY",
+];
