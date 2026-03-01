@@ -19,6 +19,7 @@ use crate::message::Message;
 use crate::output::StdoutRenderer;
 use crate::provider::{ModelSelection, Provider};
 use crate::session::Session;
+use crate::tools::ToolRegistry;
 
 /// Runs the interactive chat REPL.
 ///
@@ -44,6 +45,8 @@ pub async fn run_chat(
     selection: &ModelSelection,
 ) -> Result<()> {
     let provider = Provider::from_config(&config, selection)?;
+    let project_root = std::env::current_dir()?;
+    let tools = ToolRegistry::with_builtins(project_root);
 
     // Create or resume session
     let mut session = if let Some(ref id) = session_id {
@@ -130,7 +133,7 @@ pub async fn run_chat(
 
                 // Stream response
                 match provider
-                    .stream_with_history(&session.messages, &mut renderer)
+                    .stream_with_tools(&session.messages, &tools, &mut renderer, crate::constants::MAX_AGENT_ITERATIONS)
                     .await
                 {
                     Ok(response) => {

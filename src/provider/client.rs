@@ -286,6 +286,8 @@ impl Provider {
         Ok(full_response)
     }
 
+    // Part of public API, used in future phases
+    #[allow(dead_code)]
     /// Streams a response with full conversation history for multi-turn chat.
     ///
     /// Converts kaze's [`Message`](crate::message::Message) types to rig-core
