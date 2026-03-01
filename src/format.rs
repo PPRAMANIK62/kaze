@@ -103,19 +103,10 @@ fn render_inline(line: &str) -> String {
 
 fn find_closing(chars: &[char], start: usize, pattern: &str) -> Option<usize> {
     let pat: Vec<char> = pattern.chars().collect();
-    for i in start..chars.len() - pat.len() + 1 {
-        if chars[i..i + pat.len()] == pat[..] {
-            return Some(i);
-        }
-    }
-    None
+    let end = chars.len().checked_sub(pat.len())?.checked_add(1)?;
+    (start..end).find(|&i| chars[i..i + pat.len()] == pat[..])
 }
 
 fn find_closing_char(chars: &[char], start: usize, ch: char) -> Option<usize> {
-    for i in start..chars.len() {
-        if chars[i] == ch {
-            return Some(i);
-        }
-    }
-    None
+    (start..chars.len()).find(|&i| chars[i] == ch)
 }

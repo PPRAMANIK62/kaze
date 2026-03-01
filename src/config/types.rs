@@ -74,7 +74,7 @@ pub struct ProviderEntry {
 ///
 /// Controls when and how kaze summarizes old conversation messages
 /// to free up context window space.
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Default, Serialize, Deserialize, Clone)]
 pub struct CompactionConfig {
     /// Threshold ratio (0.0–1.0) at which auto-compaction triggers.
     pub auto_threshold: Option<f64>,
@@ -84,17 +84,6 @@ pub struct CompactionConfig {
     pub keep_recent: Option<usize>,
     /// Reserved token budget for the compaction summary itself.
     pub reserved: Option<usize>,
-}
-
-impl Default for CompactionConfig {
-    fn default() -> Self {
-        Self {
-            auto_threshold: None,
-            auto: None,
-            keep_recent: None,
-            reserved: None,
-        }
-    }
 }
 
 impl Default for Config {

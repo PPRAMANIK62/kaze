@@ -5,6 +5,7 @@
 //! `TuiRenderer` (Phase 7) will render to ratatui widgets instead.
 
 use colored::Colorize;
+use serde_json::Value;
 use std::io::{self, Write};
 
 /// Trait for rendering LLM output.
@@ -19,6 +20,17 @@ pub trait Renderer {
 
     /// Called when an error occurs during streaming.
     fn render_error(&mut self, err: &str);
+
+    /// Called when the agent starts executing a tool.
+    fn tool_start(&mut self, name: &str, args: &Value);
+
+    /// Called when a tool execution completes with its result.
+    fn tool_result(&mut self, name: &str, result: &str);
+
+    // Part of public API, used in future phases
+    #[allow(dead_code)]
+    /// Display a warning message to the user.
+    fn warn(&mut self, message: &str);
 }
 
 /// Renders streaming LLM output directly to stdout.
@@ -58,7 +70,7 @@ impl StdoutRenderer {
                 if len == 0 {
                     1
                 } else {
-                    (len + width - 1) / width
+                    len.div_ceil(width)
                 }
             })
             .sum();
@@ -89,5 +101,30 @@ impl Renderer for StdoutRenderer {
     fn render_error(&mut self, err: &str) {
         eprintln!();
         eprintln!("{} {}", "error:".red().bold(), err);
+    }
+
+    fn tool_start(&mut self, name: &str, args: &Value) {
+        let args_str = args.to_string();
+        let truncated = if args_str.len() > 80 {
+            let end = args_str.floor_char_boundary(77);
+            format!("{}...", &args_str[..end])
+        } else {
+            args_str
+        };
+        eprintln!("⚡ {} {}", name.yellow(), truncated.dimmed());
+    }
+
+    fn tool_result(&mut self, name: &str, result: &str) {
+        let truncated = if result.len() > 200 {
+            let end = result.floor_char_boundary(197);
+            format!("{}...", &result[..end])
+        } else {
+            result.to_string()
+        };
+        eprintln!("{} {}", format!("✓ {}", name).green(), truncated.dimmed());
+    }
+
+    fn warn(&mut self, message: &str) {
+        eprintln!("{} {}", "warning:".yellow().bold(), message);
     }
 }

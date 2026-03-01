@@ -115,3 +115,8 @@ pub const BASH_STRIPPED_ENV_VARS: &[&str] = &[
     "GITHUB_TOKEN",
     "OPENROUTER_API_KEY",
 ];
+
+// --- Agent loop ---
+
+/// Maximum number of agent loop iterations before aborting.
+pub const MAX_AGENT_ITERATIONS: usize = 25;

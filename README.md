@@ -39,6 +39,7 @@ kaze is built on [rig-core](https://github.com/0xPlaygrounds/rig) for LLM abstra
 - Context compaction: LLM-based summarization of old messages (`/compact` or automatic at 90% usage)
 - Tool framework: `Tool` trait, `ToolRegistry` with JSON Schema definitions for LLM function calling
 - Built-in tools: `read_file` (with path validation, size limits, binary detection), `glob` (pattern matching with project root containment), `grep` (regex content search with file filtering and match limits), `write_file` (full-file writes with parent directory creation and path validation), `edit` (search-and-replace editing with exact text matching and diff output), `bash` (shell command execution with timeout, output cap, and env variable filtering)
+- Agent loop: `kaze ask` autonomously calls tools (read, write, edit, grep, bash) in a multi-turn cycle via rig-core, executing tool calls and feeding results back until the LLM produces a final answer
 
 ## Quick Start
 
@@ -136,7 +137,7 @@ kaze is being built incrementally in 34 steps across 8 phases.
 | 3 | Multi-provider (OpenAI, OpenRouter, Ollama) | Done |
 | 4 | Context management (token counting, compaction) | Done |
 | 5 | Tools (read, write, edit, grep, bash) | Done |
-| 6 | Agent loop | Planned |
+| 6 | Agent loop | Done |
 | 7 | TUI (ratatui) | Planned |
 | 8 | Advanced (MCP, custom agents, rules) | Planned |
 

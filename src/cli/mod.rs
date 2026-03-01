@@ -5,7 +5,7 @@
 
 mod session;
 
-use crate::{chat, config, output, provider};
+use crate::{agent, chat, config, message::Message, output, provider, tools::ToolRegistry};
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use colored::Colorize;
@@ -127,10 +127,24 @@ pub async fn run(cli: Cli) -> Result<()> {
             println!();
 
             let provider = provider::Provider::from_config(&config, &selection)?;
+            let project_root = std::env::current_dir()?;
+            let tools = ToolRegistry::with_builtins(project_root);
+
+            let mut messages = Vec::new();
+            if let Some(ref sp) = config.system_prompt {
+                messages.push(Message::system(sp.clone()));
+            }
+            messages.push(Message::user(&prompt));
+
             let mut renderer = output::StdoutRenderer::new();
-            let response = provider
-                .stream(&prompt, config.system_prompt.as_deref(), &mut renderer)
-                .await?;
+            let response = agent::agent_loop(
+                &provider,
+                &mut messages,
+                &tools,
+                &mut renderer,
+                crate::constants::MAX_AGENT_ITERATIONS,
+            )
+            .await?;
 
             // Show token usage
             let token_count = crate::tokens::count_tokens(&response, &selection.model)?;

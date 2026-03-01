@@ -3,12 +3,14 @@ pub mod edit_tool;
 pub mod glob_tool;
 pub mod grep_tool;
 pub mod read_file;
+pub mod rig_adapter;
 pub mod write_file;
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use bash_tool::BashTool;
 use edit_tool::EditTool;
@@ -41,6 +43,7 @@ impl ToolResult {
 }
 
 /// Definition sent to the LLM so it knows what tools are available.
+#[cfg(test)]
 #[derive(Debug, Clone, Serialize)]
 pub struct ToolDefinition {
     pub name: String,
@@ -64,20 +67,9 @@ pub trait Tool: Send + Sync {
     async fn execute(&self, input: Value) -> Result<ToolResult>;
 }
 
-/// Built-in tools as an enum for exhaustive matching.
-/// Tools are added here in subsequent steps (17-21).
-pub enum BuiltinTool {
-    // ReadFile(ReadFileTool),
-    // Glob(GlobTool),
-    // Grep(GrepTool),
-    // WriteFile(WriteFileTool),
-    // Edit(EditTool),
-    // Bash(BashTool),
-}
-
 /// Holds all registered tools and dispatches calls by name.
 pub struct ToolRegistry {
-    tools: Vec<Box<dyn Tool>>,
+    tools: Vec<Arc<dyn Tool>>,
 }
 
 impl ToolRegistry {
@@ -87,10 +79,11 @@ impl ToolRegistry {
 
     /// Register a tool. Called during startup.
     pub fn register(&mut self, tool: Box<dyn Tool>) {
-        self.tools.push(tool);
+        self.tools.push(Arc::from(tool));
     }
 
     /// Produce definitions for the LLM (sent in the API request).
+    #[cfg(test)]
     pub fn definitions(&self) -> Vec<ToolDefinition> {
         self.tools
             .iter()
@@ -103,6 +96,7 @@ impl ToolRegistry {
     }
 
     /// Look up a tool by name and execute it.
+    #[cfg(test)]
     pub async fn execute(&self, name: &str, input: Value) -> Result<ToolResult> {
         let tool = self
             .tools
@@ -113,12 +107,28 @@ impl ToolRegistry {
     }
 
     /// How many tools are registered.
+    #[cfg(test)]
     pub fn len(&self) -> usize {
         self.tools.len()
     }
 
+    #[cfg(test)]
     pub fn is_empty(&self) -> bool {
         self.tools.is_empty()
+    }
+
+    /// Converts all registered tools into rig-core [`ToolDyn`] trait objects.
+    ///
+    /// Returns a fresh `Vec` each call so the result can be moved into an
+    /// agent builder's `.tools()` without borrow/move conflicts.
+    pub fn to_rig_tools(&self) -> Vec<Box<dyn rig::tool::ToolDyn>> {
+        self.tools
+            .iter()
+            .map(|t| {
+                Box::new(rig_adapter::RigToolAdapter::new(Arc::clone(t)))
+                    as Box<dyn rig::tool::ToolDyn>
+            })
+            .collect()
     }
 }
 

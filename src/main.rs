@@ -3,6 +3,7 @@
 //! This binary loads environment variables, parses CLI arguments via [`cli`],
 //! and dispatches to the appropriate subcommand handler.
 
+mod agent;
 mod chat;
 mod cli;
 mod compaction;
