@@ -55,6 +55,9 @@ rustyline = "15"
 # Token counting (BPE tokenization)
 tiktoken-rs = "0.6"
 
+# Async trait support for tool abstraction
+async-trait = "0.1"
+
 [profile.release]
 opt-level = "z"
 lto = true
