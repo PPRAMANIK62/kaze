@@ -69,7 +69,8 @@ pub fn default_model_for(provider: &ProviderKind) -> &'static str {
 /// Priority: CLI flags > config.toml > defaults.
 ///
 /// Accepts these formats:
-///   --model anthropic/claude-sonnet-4-5  (provider/model shorthand)
+///   --model anthropic/claude-sonnet-4-5  (provider/model shorthand, only when --provider is omitted)
+///   --provider openrouter --model "org/model-name"  (slash preserved as model name)
 ///   --provider anthropic --model claude-sonnet-4-5
 ///   --provider anthropic  (uses provider's default model)
 ///   (nothing)  (uses config.toml, then hardcoded default)
@@ -78,13 +79,15 @@ pub fn resolve_model(
     cli_model: Option<&str>,
     config: &Config,
 ) -> Result<ModelSelection> {
-    // If --model contains a slash, parse as provider/model
-    if let Some(model_str) = cli_model {
-        if let Some((prov, model)) = model_str.split_once('/') {
-            return Ok(ModelSelection {
-                provider: ProviderKind::from_str(prov)?,
-                model: model.to_string(),
-            });
+    // If --model contains a slash AND no explicit --provider, parse as provider/model shorthand
+    if cli_provider.is_none() {
+        if let Some(model_str) = cli_model {
+            if let Some((prov, model)) = model_str.split_once('/') {
+                return Ok(ModelSelection {
+                    provider: ProviderKind::from_str(prov)?,
+                    model: model.to_string(),
+                });
+            }
         }
     }
 
